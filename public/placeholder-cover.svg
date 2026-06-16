@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 600" role="img" aria-label="Book cover placeholder">
+  <rect width="480" height="600" fill="#F7C948"/>
+  <rect x="28" y="28" width="424" height="544" rx="18" fill="#FFF9EC" stroke="#2B2118" stroke-width="10"/>
+  <rect x="58" y="58" width="364" height="86" rx="10" fill="#F9738D"/>
+  <text x="240" y="112" text-anchor="middle" font-family="Georgia, serif" font-size="42" font-weight="700" fill="#2B2118">Book</text>
+  <circle cx="240" cy="300" r="112" fill="#78C6A3" stroke="#2B2118" stroke-width="8"/>
+  <path d="M170 312c34-70 106-70 140 0" fill="none" stroke="#2B2118" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="205" cy="275" r="12" fill="#2B2118"/>
+  <circle cx="275" cy="275" r="12" fill="#2B2118"/>
+  <text x="240" y="498" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="800" fill="#2B2118">Book Journal</text>
+</svg>
