@@ -12,7 +12,7 @@ Mobile-friendly Next.js app for scanning, searching, manually entering, catalogi
 - Batch Add flow for uploading multiple cover photos and reviewing each result before saving.
 - Custom inventory prefixes: `GB`, `BK`, `JRN`, or your own prefix.
 - Workflow status tracking: `Inventory`, `Ready to Convert`, `In Progress`, `Finished Journal`, `Listed`, and `Sold`.
-- Real Supabase Auth login with email magic links and optional Google OAuth.
+- Real Supabase Auth login with email/password accounts and optional Google OAuth.
 - Editable fields for inventory ID, title, author, publisher, year, ISBN, cover photo, multi-photo gallery, custom category, condition, status, prices, profit, notes, and public visibility.
 - Multiple photos per book, stored in Supabase Storage when Supabase is configured.
 - Dashboard totals for books, each workflow status, and profit.
@@ -76,13 +76,16 @@ Do not put a service role or secret key in `.env.local` for this app. This is a 
 
 ### Enable Supabase Auth
 
-The app uses email magic links by default and can also use Google OAuth.
+The app uses email/password accounts by default and can also use Google OAuth.
 
 1. In Supabase, go to **Authentication > Sign In / Providers**.
 2. Open **Email** and make sure email sign-ins are enabled.
-3. Enable magic link/OTP email login. Supabase sends the sign-in link to the user's email.
-4. Optional: open **Google**, enable it, and add the Google OAuth client ID/secret from Google Cloud.
-5. Save the settings.
+3. Make sure **Email + Password** sign-ins are enabled.
+4. Choose whether to require email confirmation:
+   - Easiest for Jess while testing: turn **Confirm email** off.
+   - More secure: keep **Confirm email** on. Jess must confirm her email before signing in.
+5. Optional: open **Google**, enable it, and add the Google OAuth client ID/secret from Google Cloud.
+6. Save the settings.
 
 ### Auth Redirect URLs
 
@@ -141,13 +144,15 @@ npm run dev
 ```
 
 3. Open `/login`.
-4. Send a magic link to Jess's email, open the link, and confirm the dashboard says **Signed in as Jess**.
-5. Confirm the dashboard status reads **Supabase connected**.
-6. Add a test book from `/add`.
-7. In Supabase, go to **Table Editor > books** and confirm a new row appears with Jess's `auth.users.id` in `user_id`.
-8. Refresh the app. The book should still appear in the dashboard, loaded from Supabase.
-9. Edit the book title or status, save it, then refresh again. The change should persist.
-10. Mark the book **Show on public library**, then open the share page from the QR/share panel and confirm the public card appears without private cost/profit fields.
+4. Choose **Create account**, enter Jess's email and password, and create the account.
+5. If Supabase email confirmation is enabled, confirm Jess's email from her inbox.
+6. Sign in and confirm the dashboard says **Signed in as Jess**.
+7. Confirm the dashboard status reads **Supabase connected**.
+8. Add a test book from `/add`.
+9. In Supabase, go to **Table Editor > books** and confirm a new row appears with Jess's `auth.users.id` in `user_id`.
+10. Refresh the app. The book should still appear in the dashboard, loaded from Supabase.
+11. Edit the book title or status, save it, then refresh again. The change should persist.
+12. Mark the book **Show on public library**, then open the share page from the QR/share panel and confirm the public card appears without private cost/profit fields.
 
 ### Public Share Page
 
@@ -226,7 +231,7 @@ When OCR succeeds, the app fills title, author, and ISBN when detected, searches
 Before deploying, verify these Supabase settings:
 
 1. Run `supabase/schema.sql` in Supabase SQL Editor.
-2. Enable **Authentication > Sign In / Providers > Email** for magic links.
+2. Enable **Authentication > Sign In / Providers > Email** for email/password accounts.
 3. Optional: enable **Authentication > Sign In / Providers > Google**.
 4. Confirm **Table Editor > books** and **Table Editor > profiles** exist.
 5. Confirm **Storage > book-photos** exists and is public.
@@ -248,7 +253,8 @@ Photo uploads use the Supabase Storage bucket and policies from `supabase/schema
 - `.env.local` contains the same required values you will add to Vercel.
 - `.env.local` is not committed or uploaded.
 - Supabase schema has been run successfully.
-- Email magic links are enabled in Supabase.
+- Email/password sign-ins are enabled in Supabase.
+- Jess has created and confirmed her account if email confirmation is required.
 - Google OAuth is configured in Supabase if you want the Google login button to work.
 - Supabase Storage bucket `book-photos` exists.
 - Vercel environment variables are set for Production.
