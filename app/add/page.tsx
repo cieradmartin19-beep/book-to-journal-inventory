@@ -88,7 +88,7 @@ export default function AddBookPage() {
   const [coverScanDiagnostics, setCoverScanDiagnostics] = useState<CoverScanDiagnostics | null>(null);
 
   useEffect(() => {
-    void fetchBooks().then((items) => setBooks(items ?? []));
+    void fetchBooks().then((items) => setBooks(items ?? [])).catch(() => setBooks([]));
     void fetchCategories().then(setCategories).catch(() => setCategories([]));
     void fetchStatuses().then(setCustomStatuses).catch(() => setCustomStatuses([]));
   }, []);

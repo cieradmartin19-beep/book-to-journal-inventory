@@ -55,14 +55,14 @@ export async function POST(request: Request) {
   const { data: userData, error: userError } = await admin.auth.getUser(accessToken);
   if (userError || !userData.user) {
     return json(401, {
-      error: userError?.message ?? "Could not verify the current anonymous user."
+      error: userError?.message ?? "Could not verify the current signed-in user."
     });
   }
 
   const currentUserId = userData.user.id;
   if (previousUserId === currentUserId) {
     return json(400, {
-      error: "The previous user_id already matches the current anonymous user."
+      error: "The previous user_id already matches the current signed-in user."
     });
   }
 

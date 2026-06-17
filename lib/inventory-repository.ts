@@ -13,6 +13,7 @@ import {
   insertSupabaseBook,
   updateSupabaseBook
 } from "@/lib/supabase-books";
+import { AuthRequiredError, ensureProfile, requireSignedInUser } from "@/lib/auth";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Book, BookDraft } from "@/lib/types";
 
@@ -23,40 +24,8 @@ export type PersistenceStatus = {
 };
 
 export async function ensureSupabaseUser() {
-  const supabase = getSupabaseBrowserClient();
-  if (!supabase) return null;
-  const client = supabase;
-
-  async function ensureProfile(userId: string) {
-    const { error } = await client
-      .from("profiles")
-      .upsert({ id: userId }, { onConflict: "id" });
-    if (error) throw error;
-  }
-
-  const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError) throw sessionError;
-
-  let user = sessionData.session?.user ?? null;
-
-  if (!user) {
-    const { data, error } = await supabase.auth.signInAnonymously();
-    if (error) {
-      throw new Error(
-        "Supabase anonymous auth is not enabled. Enable Authentication > Sign In / Providers > Anonymous sign-ins, or replace ensureSupabaseUser with your preferred auth flow."
-      );
-    }
-
-    user = data.user ?? data.session?.user ?? null;
-  }
-
-  if (!user) {
-    const { data: refreshedSession, error: refreshedError } = await supabase.auth.getSession();
-    if (refreshedError) throw refreshedError;
-    user = refreshedSession.session?.user ?? null;
-  }
-
-  if (!user) throw new Error("Supabase did not return a signed-in user.");
+  const user = await requireSignedInUser();
+  if (!user) return null;
   await ensureProfile(user.id);
   return user;
 }
@@ -86,10 +55,17 @@ export async function getPersistenceStatus(): Promise<PersistenceStatus> {
     const user = await ensureSupabaseUser();
     return {
       mode: "supabase",
-      message: "Connected to Supabase. Books save to your database.",
+      message: "Connected to Supabase. Books save to your signed-in account.",
       userId: user?.id
     };
   } catch (error) {
+    if (error instanceof AuthRequiredError) {
+      return {
+        mode: "error",
+        message: error.message
+      };
+    }
+
     return {
       mode: "error",
       message: error instanceof Error ? error.message : "Supabase connection failed."

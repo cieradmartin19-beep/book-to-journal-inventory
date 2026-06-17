@@ -30,6 +30,9 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
         const { id, inventory_id, inventory_prefix, inventory_number, profit, ...editable } = found;
         setDraft(editable);
       }
+    }).catch(() => {
+      setBook(null);
+      setDraft(null);
     });
     void fetchCategories().then(setCategories).catch(() => setCategories([]));
     void fetchStatuses().then(setCustomStatuses).catch(() => setCustomStatuses([]));

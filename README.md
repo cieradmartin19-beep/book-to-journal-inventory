@@ -12,7 +12,8 @@ Mobile-friendly Next.js app for scanning, searching, manually entering, catalogi
 - Batch Add flow for uploading multiple cover photos and reviewing each result before saving.
 - Custom inventory prefixes: `GB`, `BK`, `JRN`, or your own prefix.
 - Workflow status tracking: `Inventory`, `Ready to Convert`, `In Progress`, `Finished Journal`, `Listed`, and `Sold`.
-- Editable fields for inventory ID, title, author, publisher, year, ISBN, cover photo, multi-photo gallery, genre/category, book type, condition, cost, status, prices, profit, notes, and public visibility.
+- Real Supabase Auth login with email magic links and optional Google OAuth.
+- Editable fields for inventory ID, title, author, publisher, year, ISBN, cover photo, multi-photo gallery, custom category, condition, status, prices, profit, notes, and public visibility.
 - Multiple photos per book, stored in Supabase Storage when Supabase is configured.
 - Dashboard totals for books, each workflow status, and profit.
 - Search, genre/category filter, status filter, cover grid, detail editor, public share page, and QR code.
@@ -51,7 +52,7 @@ Use this only in `.env.local` for the temporary development recovery tool. Never
 
 ## Supabase
 
-The app uses Supabase Auth anonymous sign-ins plus Row Level Security. Without Supabase env vars, it falls back to browser `localStorage`.
+The app uses Supabase Auth user accounts plus Row Level Security. Each signed-in user sees only their own books, photos, categories, and statuses. Without Supabase env vars, local development falls back to browser `localStorage`.
 
 ### Required Environment Variables
 
@@ -73,14 +74,35 @@ Do not put a service role or secret key in `.env.local` for this app. This is a 
    - Preferred for newer projects: a **Publishable key** such as `sb_publishable_...`.
    - Legacy projects: the **anon public** key.
 
-### Enable Anonymous Auth
+### Enable Supabase Auth
 
-The app calls `supabase.auth.signInAnonymously()` so users can save books without building a login screen first.
+The app uses email magic links by default and can also use Google OAuth.
 
 1. In Supabase, go to **Authentication > Sign In / Providers**.
-2. Open **Anonymous sign-ins**.
-3. Toggle **Enable**.
-4. Save the setting.
+2. Open **Email** and make sure email sign-ins are enabled.
+3. Enable magic link/OTP email login. Supabase sends the sign-in link to the user's email.
+4. Optional: open **Google**, enable it, and add the Google OAuth client ID/secret from Google Cloud.
+5. Save the settings.
+
+### Auth Redirect URLs
+
+In Supabase, go to **Authentication > URL Configuration**.
+
+For local development:
+
+- Site URL: `http://localhost:3000`
+- Redirect URLs:
+  - `http://localhost:3000`
+  - `http://localhost:3001`
+  - `http://localhost:3002`
+
+For Vercel production, add:
+
+- Site URL: `https://your-app.vercel.app`
+- Redirect URLs:
+  - `https://your-app.vercel.app`
+  - any custom production domain, such as `https://yourdomain.com`
+  - optional preview wildcard: `https://*.vercel.app`
 
 ### Schema Verification
 
@@ -118,12 +140,14 @@ The schema is safe to run more than once for normal setup updates: tables, funct
 npm run dev
 ```
 
-3. Open the app and confirm the dashboard status reads **Supabase connected**.
-4. Add a test book from `/add`.
-5. In Supabase, go to **Table Editor > books** and confirm a new row appears.
-6. Refresh the app. The book should still appear in the dashboard, loaded from Supabase.
-7. Edit the book title or status, save it, then refresh again. The change should persist.
-8. Mark the book **Show on public library**, then open the share page from the QR/share panel and confirm the public card appears without private cost/profit fields.
+3. Open `/login`.
+4. Send a magic link to Jess's email, open the link, and confirm the dashboard says **Signed in as Jess**.
+5. Confirm the dashboard status reads **Supabase connected**.
+6. Add a test book from `/add`.
+7. In Supabase, go to **Table Editor > books** and confirm a new row appears with Jess's `auth.users.id` in `user_id`.
+8. Refresh the app. The book should still appear in the dashboard, loaded from Supabase.
+9. Edit the book title or status, save it, then refresh again. The change should persist.
+10. Mark the book **Show on public library**, then open the share page from the QR/share panel and confirm the public card appears without private cost/profit fields.
 
 ### Public Share Page
 
@@ -131,17 +155,15 @@ The dashboard QR code and share controls use `window.location.origin`, so links 
 
 If you update an existing Supabase project, rerun `supabase/schema.sql` in SQL Editor so the public view/RPC are recreated without private fields such as `user_id`, cost, profit, sold price, or notes.
 
-### Localhost Port Changes And Anonymous Users
+### Migrating Old Anonymous Inventory
 
-Supabase anonymous auth creates a real Auth user. Books are protected by RLS with `books.user_id = auth.uid()`, so a different anonymous user cannot see the old user's rows.
+Older versions of this app used Supabase anonymous users. Those books are safe, but RLS hides them from Jess's new email/Google login because their `books.user_id` belongs to the old anonymous auth user.
 
-The app stores the anonymous Supabase session in shared localhost cookies as well as browser storage, so switching between local ports such as `localhost:3000`, `localhost:3001`, and `localhost:3002` keeps using the same anonymous user going forward.
-
-If books were created before this shared-session fix, they may still belong to the anonymous user stored under the old port's browser storage. To migrate that session, run the app once on the original port that can still see the books, then refresh the dashboard so the session is copied into the shared localhost cookie. After that, other localhost ports should load the same Supabase books. If the original port/session is gone, check the `user_id` column in **Table Editor > books**; those rows are still in Supabase but are hidden from the new anonymous user by RLS.
+Use the one-time development recovery tool below to assign those existing rows to Jess's signed-in account. It updates `books.user_id` and related `book_photos.user_id`; it does not delete or duplicate books.
 
 ### One-Time Development Recovery Tool
 
-If saved books belong to an older anonymous user and the old browser session is gone, use the temporary recovery tool:
+If saved books belong to an older anonymous user, use the temporary recovery tool:
 
 1. In Supabase, go to **Project Settings > API Keys**.
 2. Copy the **service_role** key.
@@ -152,11 +174,12 @@ SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ```
 
 4. Restart the dev server with `npm run dev`.
-5. Open the dashboard with `?debug=true`, for example `http://localhost:3000/?debug=true`.
-6. In the **Supabase debug** panel, paste the old `books.user_id` from **Table Editor > books**.
-7. Click **Recover Existing Books**.
-8. Confirm the message shows how many books and photos were migrated.
-9. Remove `SUPABASE_SERVICE_ROLE_KEY` from `.env.local` and restart the dev server to disable the admin utility.
+5. Sign in as Jess in the app.
+6. Open the dashboard with `?debug=true`, for example `http://localhost:3000/?debug=true`.
+7. In the **Supabase debug** panel, paste the old anonymous `books.user_id` from **Table Editor > books**.
+8. Click **Recover Existing Books**.
+9. Confirm the message shows how many books and photos were migrated to Jess's signed-in account.
+10. Remove `SUPABASE_SERVICE_ROLE_KEY` from `.env.local` and restart the dev server to disable the admin utility.
 
 The recovery endpoint only runs in development mode. It verifies the current Supabase session, uses the service role key server-side, updates `book_photos` and `books`, checks inventory ID collisions, and does not disable RLS or duplicate books.
 
@@ -203,14 +226,15 @@ When OCR succeeds, the app fills title, author, and ISBN when detected, searches
 Before deploying, verify these Supabase settings:
 
 1. Run `supabase/schema.sql` in Supabase SQL Editor.
-2. Enable **Authentication > Sign In / Providers > Anonymous sign-ins**.
-3. Confirm **Table Editor > books** and **Table Editor > profiles** exist.
-4. Confirm **Storage > book-photos** exists and is public.
-5. In **Authentication > URL Configuration**, set **Site URL** to your production Vercel URL, for example `https://your-app.vercel.app`.
-6. Add your production URL to **Redirect URLs** too. Anonymous auth does not normally redirect, but this keeps the project ready for future auth flows.
-7. After deployment, add a test book in production and confirm the row appears in **Table Editor > books** with the current production anonymous `user_id`.
+2. Enable **Authentication > Sign In / Providers > Email** for magic links.
+3. Optional: enable **Authentication > Sign In / Providers > Google**.
+4. Confirm **Table Editor > books** and **Table Editor > profiles** exist.
+5. Confirm **Storage > book-photos** exists and is public.
+6. In **Authentication > URL Configuration**, set **Site URL** to your production Vercel URL, for example `https://your-app.vercel.app`.
+7. Add your production URL to **Redirect URLs** too. Add any custom domain and any preview URL/wildcard you will use.
+8. After deployment, sign in as Jess, add a test book, and confirm the row appears in **Table Editor > books** with Jess's `auth.users.id`.
 
-Important: production has a different browser origin than localhost. Anonymous users from local development will not automatically be the same user in production. Existing local anonymous-user rows may need to be relinked in Supabase SQL Editor if you want to see that same inventory from the deployed site.
+Important: production has a different browser origin than localhost, but Jess's email/Google login will use the same Supabase Auth user across devices after the redirect URLs are configured.
 
 ### Camera And Photo Uploads In Production
 
@@ -224,7 +248,8 @@ Photo uploads use the Supabase Storage bucket and policies from `supabase/schema
 - `.env.local` contains the same required values you will add to Vercel.
 - `.env.local` is not committed or uploaded.
 - Supabase schema has been run successfully.
-- Anonymous sign-ins are enabled in Supabase.
+- Email magic links are enabled in Supabase.
+- Google OAuth is configured in Supabase if you want the Google login button to work.
 - Supabase Storage bucket `book-photos` exists.
 - Vercel environment variables are set for Production.
 - Production Supabase Site URL and Redirect URL include the Vercel domain.
@@ -246,7 +271,7 @@ Photo uploads use the Supabase Storage bucket and policies from `supabase/schema
 6. Add the environment variables listed above.
 7. Click **Deploy**.
 8. When the deployment finishes, open the generated `.vercel.app` URL.
-9. Add a test book, refresh the dashboard, and confirm Supabase still shows **Supabase connected** and the book reloads.
+9. Sign in, add a test book, refresh the dashboard, and confirm Supabase still shows **Supabase connected** and the book reloads.
 
 ### Deploy With Vercel CLI
 

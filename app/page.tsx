@@ -317,7 +317,7 @@ commit;` : "";
             {persistence.mode === "supabase" ? "Supabase connected" : persistence.mode === "error" ? "Supabase error" : "Local mode"}:{" "}
             {persistenceMessage}
             {showSupabaseDebugPanel && persistence.userId ? (
-              <span className="mt-1 block break-all text-xs text-ink/55">Anonymous user: {persistence.userId}</span>
+              <span className="mt-1 block break-all text-xs text-ink/55">Signed-in user: {persistence.userId}</span>
             ) : null}
           </div>
 
@@ -352,7 +352,7 @@ commit;` : "";
 
               {idsMatch ? (
                 <p className="mt-3 rounded-lg bg-mint/30 p-3 font-bold text-ink">
-                  The current anonymous user matches the saved books.user_id. If the count is still 0, the next suspects are RLS
+                    The current signed-in user matches the saved books.user_id. If the count is still 0, the next suspects are RLS
                   policy shape, schema drift, or a query error.
                 </p>
               ) : null}
@@ -360,11 +360,12 @@ commit;` : "";
               {idsDiffer ? (
                 <div className="mt-3 grid gap-3">
                   <p className="rounded-lg bg-white p-3 font-bold text-ink">
-                    The current anonymous user does not match the saved books.user_id. Supabase RLS will hide those books from
-                    this session until you restore the old session or relink the rows.
+                    The current signed-in user does not match the saved books.user_id. Supabase RLS will hide those books from
+                    this account until you relink the old anonymous inventory rows.
                   </p>
                   <p className="font-semibold text-ink/70">
-                    Dev-safe recovery: use the button below. It runs only in development mode, requires the server-side
+                    Dev-safe recovery: use the button below to assign the old anonymous inventory to this signed-in account.
+                    It runs only in development mode, requires the server-side
                     `SUPABASE_SERVICE_ROLE_KEY`, and stops if inventory IDs would collide.
                   </p>
                   <button
@@ -436,15 +437,14 @@ commit;` : "";
             </div>
           ) : (
             <div className="panel mt-5 p-5">
-              <h2 className="text-xl font-black">No books found for this user</h2>
+              <h2 className="text-xl font-black">No books found for this account</h2>
               <p className="mt-2 text-sm font-semibold text-ink/65">
-                The app loaded successfully, but Supabase returned no rows for the current anonymous user.
+                The app loaded successfully, but Supabase returned no rows for the current signed-in account.
               </p>
               {persistence.mode === "supabase" ? (
                 <p className="mt-2 text-sm font-semibold text-ink/65">
-                  Anonymous sessions are now shared across localhost ports going forward. If the books were created on a
-                  different localhost port before this fix, they may belong to that older anonymous user and remain hidden
-                  by RLS until that session is migrated or the rows are reassigned in Supabase.
+                  If these books were created before real login was added, they may belong to an older anonymous user and
+                  remain hidden by RLS until the rows are recovered into this signed-in account.
                 </p>
               ) : null}
             </div>
