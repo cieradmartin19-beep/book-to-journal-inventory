@@ -21,6 +21,7 @@ export type GoogleBooksLookupDiagnostics = {
   isbnDbApiEnabled?: boolean;
   query?: string;
   matchesReturned?: number;
+  firstResultTitle?: string;
   apiError?: string;
   provider?: string;
   providerQueries?: string[];
@@ -32,9 +33,11 @@ export type CoverScanDiagnostics = {
   googleBooksApiEnabled: boolean;
   isbnDbApiEnabled?: boolean;
   ocrTextDetected: string;
+  googleBooksQuery: string;
   googleBooksQueries: string[];
   providerQueries?: string[];
   matchesReturned: number;
+  firstResultTitle: string;
   apiErrors: string[];
   failureReason: string;
 };
@@ -218,6 +221,7 @@ export async function scanCoverForBook(image: string) {
     { suggestions: [] as GoogleBookSuggestion[], error: false, message: "" };
   const suggestions = mergeSuggestions(lookups.map((result) => result.suggestions));
   const googleBooksQueries = lookups.map((result) => result.diagnostics?.query).filter(Boolean) as string[];
+  const googleBooksQuery = googleBooksQueries[0] ?? "";
   const providerQueries = lookups.flatMap((result) => result.diagnostics?.providerQueries ?? []);
   const apiErrors = [
     identify.debug?.error,
@@ -232,6 +236,10 @@ export async function scanCoverForBook(image: string) {
   const googleBooksApiEnabled = lookups.some((result) => result.diagnostics?.googleBooksApiEnabled);
   const isbnDbApiEnabled = lookups.some((result) => result.diagnostics?.isbnDbApiEnabled);
   const matchesReturned = suggestions.length;
+  const firstResultTitle =
+    suggestions[0]?.title ||
+    lookups.map((result) => result.diagnostics?.firstResultTitle).find(Boolean) ||
+    "";
   const fallbackTitle = detectedTitle || detectedTextFallbackTitle;
   const failureReason = suggestions.length > 0
     ? ""
@@ -257,9 +265,11 @@ export async function scanCoverForBook(image: string) {
       googleBooksApiEnabled,
       isbnDbApiEnabled,
       ocrTextDetected: identify.detectedText || "",
+      googleBooksQuery,
       googleBooksQueries,
       providerQueries,
       matchesReturned,
+      firstResultTitle,
       apiErrors,
       failureReason
     } satisfies CoverScanDiagnostics,

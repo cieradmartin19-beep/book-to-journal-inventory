@@ -335,8 +335,10 @@ export default function AddBookPage() {
         ocrEnabled: false,
         googleBooksApiEnabled: false,
         ocrTextDetected: "",
+        googleBooksQuery: "",
         googleBooksQueries: [],
         matchesReturned: 0,
+        firstResultTitle: "",
         apiErrors: [message],
         failureReason: message
       });
@@ -746,6 +748,9 @@ export default function AddBookPage() {
                     </p>
                     <p className="rounded-lg bg-honey/20 p-2">Matches returned: {coverScanDiagnostics.matchesReturned}</p>
                     <p className="rounded-lg bg-honey/20 p-2">
+                      First result: {coverScanDiagnostics.firstResultTitle || "No Google Books result title returned"}
+                    </p>
+                    <p className="rounded-lg bg-honey/20 p-2">
                       Status: {coverScanDiagnostics.failureReason ? "Needs manual review" : "Matches found"}
                     </p>
                   </div>
@@ -757,11 +762,17 @@ export default function AddBookPage() {
                       </pre>
                     </div>
                     <div className="rounded-lg bg-ink/5 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Book lookup queries sent</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Exact Google Books query sent</p>
                       <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
-                        {[...coverScanDiagnostics.googleBooksQueries, ...(coverScanDiagnostics.providerQueries ?? [])].length
-                          ? [...coverScanDiagnostics.googleBooksQueries, ...(coverScanDiagnostics.providerQueries ?? [])].join("\n")
-                          : "No provider query was sent."}
+                        {coverScanDiagnostics.googleBooksQuery || "No Google Books query was sent."}
+                      </pre>
+                    </div>
+                    <div className="rounded-lg bg-ink/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Fallback provider queries sent</p>
+                      <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
+                        {(coverScanDiagnostics.providerQueries ?? []).length
+                          ? (coverScanDiagnostics.providerQueries ?? []).join("\n")
+                          : "No fallback provider query was sent."}
                       </pre>
                     </div>
                     <div className={`rounded-lg p-3 ${coverScanDiagnostics.apiErrors.length || coverScanDiagnostics.failureReason ? "bg-rose/15" : "bg-mint/20"}`}>

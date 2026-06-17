@@ -416,6 +416,7 @@ export async function GET(request: Request) {
       providerQueries,
       providerErrors,
       matchesReturned: suggestions.length,
+      firstResultTitle: suggestions[0]?.title || "",
       apiError: suggestions.length ? "" : providerErrors.join("\n")
     }
   });
