@@ -1,22 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { Copy, ExternalLink, Plus, QrCode, Search, Upload } from "lucide-react";
+import { Copy, ExternalLink, Plus, QrCode, Search, Settings, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
 import { DashboardStats } from "@/components/DashboardStats";
 import { InventoryPrefixSettings } from "@/components/InventoryPrefixSettings";
 import { QRCodeBox } from "@/components/QRCodeBox";
+import { fetchCategories } from "@/lib/categories";
 import { fetchBooks, getPersistenceStatus, getPublicSharePath, type PersistenceStatus } from "@/lib/inventory-repository";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { getDashboardStats } from "@/lib/stats";
-import { statuses, type Book } from "@/lib/types";
+import { statuses, type Book, type Category } from "@/lib/types";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
 export default function HomePage() {
   const [books, setBooks] = useState<Book[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [booksLoading, setBooksLoading] = useState(true);
   const [booksError, setBooksError] = useState("");
   const [fetchDebug, setFetchDebug] = useState({
@@ -68,7 +70,7 @@ export default function HomePage() {
 
       if (!mounted) return;
 
-      const [booksResult, shareResult] = await Promise.allSettled([fetchBooks(), getPublicSharePath()]);
+      const [booksResult, shareResult, categoriesResult] = await Promise.allSettled([fetchBooks(), getPublicSharePath(), fetchCategories()]);
 
       if (!mounted) return;
 
@@ -102,6 +104,12 @@ export default function HomePage() {
             ? shareResult.reason.message
             : "Share link could not be loaded from Supabase."
         );
+      }
+
+      if (categoriesResult.status === "fulfilled") {
+        setCategories(categoriesResult.value ?? []);
+      } else {
+        setCategories([]);
       }
 
       setBooksLoading(false);
@@ -141,15 +149,20 @@ export default function HomePage() {
         .join(" ")
         .toLowerCase();
       const matchesQuery = searchable.includes(query.toLowerCase());
-      const matchesCategory = category === "All" || book.category === category;
+      const legacyCategoryKey = `legacy:${book.category || "Uncategorized"}`;
+      const matchesCategory = category === "All" || book.category_id === category || (!book.category_id && legacyCategoryKey === category);
       const matchesStatus = status === "All" || book.status === status;
       return matchesQuery && matchesCategory && matchesStatus;
     });
   }, [books, category, query, status]);
 
   const categoryOptions = useMemo(() => {
-    return Array.from(new Set(books.map((book) => book.category).filter(Boolean))).sort();
-  }, [books]);
+    const legacy = books
+      .filter((book) => !book.category_id && book.category)
+      .map((book) => ({ id: `legacy:${book.category}`, name: book.category }));
+    const options = [...categories.map((item) => ({ id: item.id, name: item.name })), ...legacy];
+    return Array.from(new Map(options.map((item) => [item.id, item])).values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [books, categories]);
 
   const currentUserId = persistence.userId ?? "";
   const showSupabaseDebugPanel = isDevelopment && debugMode;
@@ -262,6 +275,10 @@ commit;` : "";
                 <Upload size={20} aria-hidden />
                 Batch Add
               </Link>
+              <Link href="/categories" className="btn-secondary">
+                <Settings size={20} aria-hidden />
+                Categories
+              </Link>
               <Link href="/add" className="btn-primary">
                 <Plus size={20} aria-hidden />
                 Add Book
@@ -364,8 +381,8 @@ commit;` : "";
               />
             </label>
             <select className="field" value={category} onChange={(event) => setCategory(event.target.value)}>
-              <option>All</option>
-              {categoryOptions.map((item) => <option key={item}>{item}</option>)}
+              <option value="All">All categories</option>
+              {categoryOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
             <select className="field" value={status} onChange={(event) => setStatus(event.target.value)}>
               <option>All</option>

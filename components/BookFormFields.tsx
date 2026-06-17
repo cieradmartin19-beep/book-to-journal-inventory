@@ -1,33 +1,23 @@
 "use client";
 
 import { bookTypes, conditions, statuses, type Book } from "@/lib/types";
+import type { Category } from "@/lib/types";
 
 type EditableBook = Omit<Book, "id" | "inventory_id" | "inventory_prefix" | "inventory_number" | "profit">;
-
-const genreSuggestions = [
-  "Fiction",
-  "Nonfiction",
-  "Children's Fiction",
-  "Picture Book",
-  "Biography",
-  "Cookbook",
-  "History",
-  "Fantasy",
-  "Romance",
-  "Vintage Children's Books",
-  "Handmade Journals",
-  "Other"
-];
 
 export function BookFormFields({
   value,
   onChange,
+  categories = [],
+  onCreateCategory,
   pendingPhotoUrls = [],
   onPhotosSelected,
   onRemovePendingPhoto
 }: {
   value: EditableBook;
   onChange: (book: EditableBook) => void;
+  categories?: Category[];
+  onCreateCategory?: () => void;
   pendingPhotoUrls?: string[];
   onPhotosSelected?: (files: File[]) => void;
   onRemovePendingPhoto?: (index: number) => void;
@@ -144,16 +134,31 @@ export function BookFormFields({
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2">
-          <span className="label">Genre/category</span>
-          <input
+          <span className="label">Category</span>
+          <select
             className="field"
-            list="genre-suggestions"
-            value={value.category}
-            onChange={(event) => set("category", event.target.value)}
-          />
-          <datalist id="genre-suggestions">
-            {genreSuggestions.map((genre) => <option key={genre} value={genre} />)}
-          </datalist>
+            value={value.category_id ?? ""}
+            onChange={(event) => {
+              if (event.target.value === "__new") {
+                onCreateCategory?.();
+                return;
+              }
+
+              const category = categories.find((item) => item.id === event.target.value);
+              onChange({
+                ...value,
+                category_id: category?.id ?? null,
+                category: category?.name ?? "Uncategorized",
+                category_color: category?.color ?? null
+              });
+            }}
+          >
+            <option value="">Uncategorized</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
+            <option value="__new">+ New Category</option>
+          </select>
         </label>
         <label className="grid gap-2">
           <span className="label">Book type</span>

@@ -7,10 +7,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
 import { InventoryPrefixSettings } from "@/components/InventoryPrefixSettings";
+import { createCategory, fetchCategories } from "@/lib/categories";
 import { blankDraft, fileToDataUrl, scanCoverForBook, suggestionToDraft } from "@/lib/book-lookup";
 import { createBook, fetchBooks } from "@/lib/inventory-repository";
 import { nextInventoryId } from "@/lib/mock-data";
-import type { Book, BookDraft, GoogleBookSuggestion } from "@/lib/types";
+import type { Book, BookDraft, Category, GoogleBookSuggestion } from "@/lib/types";
 
 type BatchItem = {
   id: string;
@@ -28,9 +29,11 @@ export default function BatchAddPage() {
   const [prefix, setPrefix] = useState("BK");
   const [items, setItems] = useState<BatchItem[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
     void fetchBooks().then((items) => setBooks(items ?? []));
+    void fetchCategories().then(setCategories).catch(() => setCategories([]));
   }, []);
 
   const firstNextId = useMemo(() => {
@@ -56,6 +59,12 @@ export default function BatchAddPage() {
 
     for (const item of nextItems) {
       const result = await scanCoverForBook(item.image);
+      const ocrDraft = {
+        ...item.draft,
+        title: result.detectedTitle,
+        author: result.detectedAuthor,
+        isbn: result.detectedIsbn
+      };
       setItems((current) =>
         current.map((existing) =>
           existing.id === item.id
@@ -64,9 +73,11 @@ export default function BatchAddPage() {
                 state: "review",
                 suggestion: result.suggestions[0],
                 suggestions: result.suggestions,
-                draft: result.suggestions[0] ? suggestionToDraft(result.suggestions[0], existing.draft) : existing.draft,
+                draft: result.suggestions[0] ? suggestionToDraft(result.suggestions[0], ocrDraft) : ocrDraft,
                 statusText: result.suggestions.length
-                  ? `Detected "${result.detectedTitle}". Choose the matching Google Books result.`
+                  ? result.detectedIsbn
+                    ? `Detected ISBN ${result.detectedIsbn}. Choose the matching Google Books result.`
+                    : `Detected "${result.detectedTitle}". Choose the matching Google Books result.`
                   : result.message || "No Google Books match found. Fill in the details manually."
               }
             : existing
@@ -87,6 +98,28 @@ export default function BatchAddPage() {
               ...item,
               suggestion,
               draft: suggestionToDraft(suggestion, item.draft)
+            }
+          : item
+      )
+    );
+  }
+
+  async function createCategoryForItem(id: string) {
+    const name = window.prompt("New category name");
+    if (!name?.trim()) return;
+    const category = await createCategory(name.trim());
+    setCategories((current) => [...current, category].sort((a, b) => a.name.localeCompare(b.name)));
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              draft: {
+                ...item.draft,
+                category_id: category.id,
+                category: category.name,
+                category_color: category.color
+              }
             }
           : item
       )
@@ -257,7 +290,12 @@ export default function BatchAddPage() {
                       })}
                     </div>
                   )}
-                  <BookFormFields value={item.draft} onChange={(draft) => updateItem(item.id, draft)} />
+                  <BookFormFields
+                    value={item.draft}
+                    onChange={(draft) => updateItem(item.id, draft)}
+                    categories={categories}
+                    onCreateCategory={() => createCategoryForItem(item.id)}
+                  />
                 </>
               )}
             </div>

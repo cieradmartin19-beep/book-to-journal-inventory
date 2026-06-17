@@ -45,15 +45,28 @@ export async function GET(request: Request) {
   const isbn = searchParams.get("isbn");
   const title = searchParams.get("title");
   const author = searchParams.get("author");
+  const queryText = searchParams.get("q");
 
-  if (!isbn && !title) {
-    return NextResponse.json({ error: "ISBN or title is required." }, { status: 400 });
+  if (!isbn && !title && !queryText) {
+    return NextResponse.json({
+      suggestions: [],
+      error: true,
+      message: "ISBN, title, or query text is required.",
+      diagnostics: {
+        googleBooksApiEnabled: Boolean(process.env.GOOGLE_BOOKS_API_KEY),
+        query: "",
+        matchesReturned: 0,
+        apiError: "ISBN, title, or query text is required."
+      }
+    }, { status: 400 });
   }
 
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
   const query = isbn
     ? `isbn:${isbn}`
-    : [`intitle:${title}`, author ? `inauthor:${author}` : ""].filter(Boolean).join("+");
+    : queryText
+      ? queryText
+      : [`intitle:${title}`, author ? `inauthor:${author}` : ""].filter(Boolean).join("+");
   url.searchParams.set("q", query);
   url.searchParams.set("maxResults", "5");
   if (process.env.GOOGLE_BOOKS_API_KEY) {
@@ -62,7 +75,10 @@ export async function GET(request: Request) {
 
   try {
     const response = await fetch(url, { next: { revalidate: 60 * 60 * 24 } });
-    if (!response.ok) throw new Error("Google Books request failed");
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      throw new Error(`Google Books request failed (${response.status} ${response.statusText})${detail ? `: ${detail.slice(0, 240)}` : ""}`);
+    }
     const data = (await response.json()) as { items?: GoogleBooksVolume[] };
     const suggestions = (data.items ?? []).map((item) => {
       const info = item.volumeInfo ?? {};
@@ -84,12 +100,27 @@ export async function GET(request: Request) {
       };
     });
 
-    return NextResponse.json({ suggestions });
-  } catch {
+    return NextResponse.json({
+      suggestions,
+      diagnostics: {
+        googleBooksApiEnabled: Boolean(process.env.GOOGLE_BOOKS_API_KEY),
+        query,
+        matchesReturned: suggestions.length,
+        apiError: ""
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Google Books request failed.";
     return NextResponse.json({
       suggestions: [],
       error: true,
-      message: "Book lookup failed. You can still enter it manually."
+      message,
+      diagnostics: {
+        googleBooksApiEnabled: Boolean(process.env.GOOGLE_BOOKS_API_KEY),
+        query,
+        matchesReturned: 0,
+        apiError: message
+      }
     });
   }
 }

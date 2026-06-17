@@ -3,10 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
+import { displayCategory } from "@/lib/categories";
 import type { Book } from "@/lib/types";
 import { formatMoney } from "@/lib/stats";
 
 export function BookCard({ book }: { book: Book }) {
+  const category = displayCategory(book);
+
   return (
     <Link
       href={`/books/${book.id}`}
@@ -30,7 +33,9 @@ export function BookCard({ book }: { book: Book }) {
           <p className="truncate text-xs font-semibold text-ink/60">{book.author || "Unknown author"}</p>
         </div>
         <div className="flex flex-wrap gap-1">
-          <span className="max-w-full truncate rounded-md bg-mint/25 px-2 py-1 text-xs font-bold">{book.category}</span>
+          <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: category.color }}>
+            {category.name}
+          </span>
           <span className="max-w-full truncate rounded-md bg-honey/35 px-2 py-1 text-xs font-bold">{book.book_type}</span>
           <span className="max-w-full truncate rounded-md bg-rose/15 px-2 py-1 text-xs font-bold">{book.status}</span>
         </div>

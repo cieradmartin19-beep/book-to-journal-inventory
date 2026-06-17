@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -19,31 +20,36 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
 import { InventoryPrefixSettings } from "@/components/InventoryPrefixSettings";
+import { createCategory, fetchCategories } from "@/lib/categories";
 import {
   blankDraft,
   cleanIsbn,
   detectIsbnFromImage,
   fileToDataUrl,
-  getBarcodeDetector,
   lookupGoogleBooks,
   scanCoverForBook,
-  scannedValueToIsbn,
   suggestionToDraft
 } from "@/lib/book-lookup";
+import type { CoverScanDiagnostics, OcrDebugInfo } from "@/lib/book-lookup";
 import { createBook, fetchBooks } from "@/lib/inventory-repository";
 import { nextInventoryId } from "@/lib/mock-data";
 import type { Book, BookDraft, GoogleBookSuggestion } from "@/lib/types";
+import type { Category } from "@/lib/types";
+
+const LiveBarcodeScanner = dynamic(() => import("@/components/LiveBarcodeScanner"), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold text-ink/70">
+      Loading camera scanner...
+    </div>
+  )
+});
 
 export default function AddBookPage() {
   const coverInput = useRef<HTMLInputElement>(null);
   const barcodeInput = useRef<HTMLInputElement>(null);
-  const scanButtonRef = useRef<HTMLButtonElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const coverVideoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const coverStreamRef = useRef<MediaStream | null>(null);
-  const scanFrameRef = useRef<number | null>(null);
-  const scannerActiveRef = useRef(false);
   const toastTimeoutRef = useRef<number | null>(null);
   const pendingPhotoUrlsRef = useRef<string[]>([]);
   const [prefix, setPrefix] = useState("BK");
@@ -56,8 +62,7 @@ export default function AddBookPage() {
   const [manualAuthor, setManualAuthor] = useState("");
   const [statusText, setStatusText] = useState("Choose how you want to add this book.");
   const [books, setBooks] = useState<Book[]>([]);
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [cameraStatus, setCameraStatus] = useState("Point your camera at the ISBN barcode.");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [toast, setToast] = useState("");
   const [pendingPhotoFiles, setPendingPhotoFiles] = useState<File[]>([]);
   const [pendingPhotoUrls, setPendingPhotoUrls] = useState<string[]>([]);
@@ -67,14 +72,30 @@ export default function AddBookPage() {
   const [coverCameraOpen, setCoverCameraOpen] = useState(false);
   const [coverCameraStatus, setCoverCameraStatus] = useState("Point your camera at the book cover.");
   const [coverScanPreview, setCoverScanPreview] = useState("");
+  const [debugMode, setDebugMode] = useState(false);
+  const [ocrDebug, setOcrDebug] = useState<{
+    detectedTitle: string;
+    detectedAuthor: string;
+    detectedIsbn: string;
+    detectedText: string;
+    confidence: number;
+    source: string;
+    message: string;
+    debug?: OcrDebugInfo;
+  } | null>(null);
+  const [coverScanDiagnostics, setCoverScanDiagnostics] = useState<CoverScanDiagnostics | null>(null);
 
   useEffect(() => {
     void fetchBooks().then((items) => setBooks(items ?? []));
+    void fetchCategories().then(setCategories).catch(() => setCategories([]));
+  }, []);
+
+  useEffect(() => {
+    setDebugMode(process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("debug") === "true");
   }, []);
 
   useEffect(() => {
     return () => {
-      stopLiveBarcodeScanner(false);
       stopCoverCamera(false);
       if (toastTimeoutRef.current) {
         window.clearTimeout(toastTimeoutRef.current);
@@ -92,101 +113,17 @@ export default function AddBookPage() {
     return nextInventoryId(books, prefix);
   }, [books, prefix]);
 
-  function stopLiveBarcodeScanner(updateState = true) {
-    scannerActiveRef.current = false;
+  function dataUrlToFile(dataUrl: string, fileName: string) {
+    const [header, base64 = ""] = dataUrl.split(",");
+    const mime = header.match(/data:(.*?);base64/)?.[1] || "image/jpeg";
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
 
-    if (scanFrameRef.current) {
-      cancelAnimationFrame(scanFrameRef.current);
-      scanFrameRef.current = null;
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
     }
 
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-
-    if (updateState) {
-      setScannerOpen(false);
-    }
-  }
-
-  async function startLiveBarcodeScanner() {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setCameraStatus("Camera access is not available in this browser. Type the ISBN or upload a barcode photo.");
-      setScannerOpen(true);
-      return;
-    }
-
-    const detector = getBarcodeDetector();
-    if (!detector) {
-      setCameraStatus("Live barcode scanning is not supported in this browser. Type the ISBN or upload a barcode photo.");
-      setScannerOpen(true);
-      return;
-    }
-
-    setCameraStatus("Starting camera...");
-    setScannerOpen(true);
-
-    try {
-      stopLiveBarcodeScanner();
-      setScannerOpen(true);
-      scannerActiveRef.current = true;
-
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      });
-      streamRef.current = stream;
-
-      const video = videoRef.current;
-      if (!video) throw new Error("Camera preview is unavailable.");
-
-      video.srcObject = stream;
-      video.setAttribute("playsinline", "true");
-      await video.play();
-      setCameraStatus("Scanning... hold the ISBN barcode inside the frame.");
-
-      const scan = async () => {
-        if (!scannerActiveRef.current || !videoRef.current) return;
-
-        try {
-          if (videoRef.current.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-            const detections = await detector.detect(videoRef.current);
-            const isbn = detections.map((item) => scannedValueToIsbn(item.rawValue)).find(Boolean);
-
-            if (isbn) {
-              setIsbnEntry(isbn);
-              setCameraStatus(`ISBN ${isbn} found. Looking up book details...`);
-              stopLiveBarcodeScanner();
-              await lookupByIsbn(isbn);
-              return;
-            }
-          }
-        } catch {
-          setCameraStatus("Still scanning... try steadying the camera or use manual ISBN entry.");
-        }
-
-        scanFrameRef.current = requestAnimationFrame(scan);
-      };
-
-      scanFrameRef.current = requestAnimationFrame(scan);
-    } catch (error) {
-      stopLiveBarcodeScanner();
-      setScannerOpen(true);
-      setCameraStatus(
-        error instanceof Error
-          ? `${error.message}. Type the ISBN or upload a barcode photo instead.`
-          : "Camera could not be started. Type the ISBN or upload a barcode photo instead."
-      );
-    }
+    return new File([bytes], fileName, { type: mime });
   }
 
   function stopCoverCamera(updateState = true) {
@@ -262,8 +199,9 @@ export default function AddBookPage() {
 
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const image = canvas.toDataURL("image/jpeg", 0.9);
+    const file = dataUrlToFile(image, `cover-scan-${Date.now()}.jpg`);
     stopCoverCamera();
-    await processCoverImage(image);
+    await processCoverImage(image, file);
   }
 
   async function lookupByIsbn(rawIsbn: string, coverUrl = "") {
@@ -341,39 +279,63 @@ export default function AddBookPage() {
     }
   }
 
-  async function processCoverImage(image: string) {
+  async function processCoverImage(image: string, capturedCoverFile?: File) {
     setCoverScanPreview(image);
     setDraft(blankDraft(image));
     setStep("looking");
     setSuggestion(null);
     setSuggestions([]);
     setLookupError("");
-    setStatusText("Reading title text from the cover...");
+    setOcrDebug(null);
+    setCoverScanDiagnostics(null);
+    setStatusText("Identifying book...");
+    if (capturedCoverFile) {
+      addPendingPhotos([capturedCoverFile]);
+    }
     const result = await scanCoverForBook(image);
+    setOcrDebug({
+      detectedTitle: result.detectedTitle,
+      detectedAuthor: result.detectedAuthor,
+      detectedIsbn: result.detectedIsbn,
+      detectedText: result.detectedText,
+      confidence: result.confidence,
+      source: result.source,
+      message: result.message,
+      debug: result.debug
+    });
+    setCoverScanDiagnostics(result.diagnostics);
+    const ocrDraft = {
+      ...blankDraft(image),
+      title: result.detectedTitle,
+      author: result.detectedAuthor,
+      isbn: result.detectedIsbn
+    };
 
     if (result.suggestions.length > 0) {
       setSuggestion(result.suggestion);
       setSuggestions(result.suggestions);
-      setDraft(suggestionToDraft(result.suggestion, blankDraft(image)));
+      setDraft(suggestionToDraft(result.suggestion, ocrDraft));
       setStatusText(
-        result.detectedTitle
-          ? `Detected "${result.detectedTitle}". Choose the correct Google Books match or edit manually.`
+        result.detectedIsbn
+          ? `Detected ISBN ${result.detectedIsbn}. Choose the correct Google Books match or edit manually.`
+          : result.detectedTitle
+            ? `Detected "${result.detectedTitle}". Choose the correct Google Books match or edit manually.`
           : "Google Books matches are ready. Choose the best one or edit manually."
       );
     } else {
       setSuggestion(null);
-      setDraft(blankDraft(image));
+      setDraft(ocrDraft);
       if (result.error) {
-        setLookupError(result.message || "Book lookup failed. You can still enter it manually.");
+        setLookupError("We couldn't identify this book automatically. You can still enter it manually.");
       }
-      setStatusText(result.message || "No cover match found. Manual entry is ready.");
+      setStatusText("We couldn't identify this book automatically. You can still enter it manually.");
     }
     setStep("review");
   }
 
   async function handleCoverFile(file: File) {
     const image = await fileToDataUrl(file);
-    await processCoverImage(image);
+    await processCoverImage(image, file);
   }
 
   async function lookupByTitle() {
@@ -427,6 +389,8 @@ export default function AddBookPage() {
       setSuggestions([]);
       setLookupError("");
       setCoverScanPreview("");
+      setOcrDebug(null);
+      setCoverScanDiagnostics(null);
       setIsbnEntry("");
       setManualTitle("");
       setManualAuthor("");
@@ -443,12 +407,22 @@ export default function AddBookPage() {
         setToast("");
       }, 3500);
 
-      window.setTimeout(() => {
-        scanButtonRef.current?.focus();
-      }, 0);
     } catch (error) {
       setStatusText(error instanceof Error ? error.message : "Save failed. Please try again.");
     }
+  }
+
+  async function createCategoryFromForm() {
+    const name = window.prompt("New category name");
+    if (!name?.trim()) return;
+    const category = await createCategory(name.trim());
+    setCategories((current) => [...current, category].sort((a, b) => a.name.localeCompare(b.name)));
+    setDraft((current) => ({
+      ...current,
+      category_id: category.id,
+      category: category.name,
+      category_color: category.color
+    }));
   }
 
   return (
@@ -505,27 +479,13 @@ export default function AddBookPage() {
                 <Barcode size={22} aria-hidden />
                 <h2 className="text-lg font-black sm:text-xl">1. Scan barcode/ISBN</h2>
               </div>
-              <button ref={scanButtonRef} className="btn-primary w-full" disabled={isbnLookupLoading} onClick={startLiveBarcodeScanner}>
-                <Barcode size={22} aria-hidden />
-                Scan Live Barcode
-              </button>
-              {scannerOpen && (
-                <div className="mt-3 grid gap-3 rounded-lg border-2 border-ink/10 bg-white p-3">
-                  <div className="relative overflow-hidden rounded-lg bg-ink">
-                    <video
-                      ref={videoRef}
-                      className="aspect-video w-full object-cover"
-                      muted
-                      playsInline
-                    />
-                    <div className="pointer-events-none absolute inset-x-8 top-1/2 h-20 -translate-y-1/2 rounded-lg border-2 border-honey shadow-[0_0_0_999px_rgba(0,0,0,0.25)]" />
-                  </div>
-                  <p className="text-sm font-bold text-ink/70">{cameraStatus}</p>
-                  <button className="btn-secondary w-full" onClick={() => stopLiveBarcodeScanner()}>
-                    Stop Camera
-                  </button>
-                </div>
-              )}
+              <LiveBarcodeScanner
+                disabled={isbnLookupLoading}
+                onDetected={(isbn) => {
+                  setIsbnEntry(isbn);
+                  void lookupByIsbn(isbn);
+                }}
+              />
               <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
                 <input
                   className="field"
@@ -701,6 +661,51 @@ export default function AddBookPage() {
                   )}
                 </div>
               </div>
+              {coverScanDiagnostics ? (
+                <div className="grid gap-3 rounded-lg border-2 border-ink/10 bg-white p-3 sm:p-4">
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-wide text-marigold">Cover scan diagnostics</p>
+                    <p className="mt-1 text-sm font-semibold text-ink/65">
+                      Automatic identification details from OCR and Google Books.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 text-sm font-bold text-ink/75 sm:grid-cols-2">
+                    <p className="rounded-lg bg-honey/20 p-2">OCR enabled? {coverScanDiagnostics.ocrEnabled ? "yes" : "no"}</p>
+                    <p className="rounded-lg bg-honey/20 p-2">
+                      Google Books API enabled? {coverScanDiagnostics.googleBooksApiEnabled ? "yes" : "no"}
+                    </p>
+                    <p className="rounded-lg bg-honey/20 p-2">Matches returned: {coverScanDiagnostics.matchesReturned}</p>
+                    <p className="rounded-lg bg-honey/20 p-2">
+                      Status: {coverScanDiagnostics.failureReason ? "Needs manual review" : "Matches found"}
+                    </p>
+                  </div>
+                  <div className="grid gap-2">
+                    <div className="rounded-lg bg-ink/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">OCR text detected</p>
+                      <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
+                        {coverScanDiagnostics.ocrTextDetected || "No OCR text detected."}
+                      </pre>
+                    </div>
+                    <div className="rounded-lg bg-ink/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Google Books query sent</p>
+                      <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
+                        {coverScanDiagnostics.googleBooksQueries.length
+                          ? coverScanDiagnostics.googleBooksQueries.join("\n")
+                          : "No Google Books query was sent."}
+                      </pre>
+                    </div>
+                    <div className={`rounded-lg p-3 ${coverScanDiagnostics.apiErrors.length || coverScanDiagnostics.failureReason ? "bg-rose/15" : "bg-mint/20"}`}>
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">API errors / failure reason</p>
+                      <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
+                        {[
+                          ...coverScanDiagnostics.apiErrors,
+                          coverScanDiagnostics.failureReason
+                        ].filter(Boolean).join("\n") || "No API errors reported."}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               {suggestions.length > 0 && (
                 <div className="grid gap-3">
                   <div>
@@ -746,9 +751,47 @@ export default function AddBookPage() {
                   </div>
                 </div>
               )}
+              {debugMode && ocrDebug ? (
+                <div className="grid gap-3 rounded-lg border-2 border-ink/10 bg-white p-3 sm:p-4">
+                  <div>
+                    <p className="text-sm font-black uppercase tracking-wide text-marigold">OCR debug</p>
+                    <p className="mt-1 text-sm font-semibold text-ink/65">
+                      Source: {ocrDebug.source} · Confidence: {Math.round((ocrDebug.confidence || 0) * 100)}%
+                    </p>
+                  </div>
+                  <div className="grid gap-2 text-sm font-bold text-ink/75 sm:grid-cols-3">
+                    <p className="break-words rounded-lg bg-honey/20 p-2">Title: {ocrDebug.detectedTitle || "None"}</p>
+                    <p className="break-words rounded-lg bg-honey/20 p-2">Author: {ocrDebug.detectedAuthor || "None"}</p>
+                    <p className="break-words rounded-lg bg-honey/20 p-2">ISBN: {ocrDebug.detectedIsbn || "None"}</p>
+                  </div>
+                  {ocrDebug.debug?.lines?.length ? (
+                    <div className="rounded-lg bg-ink/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">
+                        Detected lines ({ocrDebug.debug.lineCount ?? ocrDebug.debug.lines.length})
+                      </p>
+                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/70">
+                        {ocrDebug.debug.lines.join("\n")}
+                      </pre>
+                    </div>
+                  ) : ocrDebug.detectedText ? (
+                    <div className="rounded-lg bg-ink/5 p-3">
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Detected text</p>
+                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/70">
+                        {ocrDebug.detectedText.slice(0, 1200)}
+                      </pre>
+                    </div>
+                  ) : (
+                    <p className="rounded-lg bg-rose/15 p-3 text-sm font-bold text-ink/70">
+                      {ocrDebug.message || "No OCR text was detected. Manual entry is ready."}
+                    </p>
+                  )}
+                </div>
+              ) : null}
               <BookFormFields
                 value={draft}
                 onChange={setDraft}
+                categories={categories}
+                onCreateCategory={createCategoryFromForm}
                 pendingPhotoUrls={pendingPhotoUrls}
                 onPhotosSelected={addPendingPhotos}
                 onRemovePendingPhoto={removePendingPhoto}

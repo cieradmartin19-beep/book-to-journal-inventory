@@ -6,8 +6,8 @@ Mobile-friendly Next.js app for scanning, searching, manually entering, catalogi
 
 - Add any book three ways: scan barcode/ISBN, scan or upload a cover photo, or type a title manually.
 - ISBN-first lookup: Google Books is searched by ISBN when one is available.
-- Barcode photos use the browser's native `BarcodeDetector` when supported; typing or pasting ISBN is always available as the fallback.
-- Cover fallback: when there is no ISBN, the app can use Google Cloud Vision OCR to detect cover text, then search Google Books by title and author.
+- Barcode photos and live barcode scanning use `@zxing/browser`; typing or pasting ISBN is always available as the fallback.
+- Cover fallback: when there is no ISBN, the app can use Google Cloud Vision OCR to detect cover title, author, and ISBN text, then search Google Books by ISBN or title.
 - Manual entry is always available for missing barcodes, damaged barcodes, old ISBNs, and no-result books.
 - Batch Add flow for uploading multiple cover photos and reviewing each result before saving.
 - Custom inventory prefixes: `GB`, `BK`, `JRN`, or your own prefix.
@@ -35,11 +35,11 @@ Copy `.env.example` to `.env.local` and fill in the services you want to enable.
 cp .env.example .env.local
 ```
 
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` enable Supabase persistence. `GOOGLE_CLOUD_VISION_API_KEY` powers cover text detection. `GOOGLE_BOOKS_API_KEY` is optional for book detail lookup.
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` enable Supabase persistence. `GOOGLE_CLOUD_VISION_API_KEY` powers server-side cover OCR. `GOOGLE_BOOKS_API_KEY` is optional for book detail lookup.
 
 Optional local debugging: open the dashboard with `?debug=true`, for example `http://localhost:3000/?debug=true`.
 
-The Supabase debug panel is available only in development mode and only when `?debug=true` is present. It is not shown in production.
+The Supabase debug panel and OCR debug details are available only in development mode and only when `?debug=true` is present. They are not shown in production.
 
 Optional one-time local recovery:
 
@@ -181,6 +181,21 @@ GOOGLE_BOOKS_API_KEY=your-google-books-api-key
 ```
 
 Do not add Supabase service role keys to Vercel for this browser app.
+
+### Production OCR Setup
+
+Cover OCR runs in the server route `app/api/identify/route.ts`, so the Google Vision key stays server-side and must be added to Vercel without a `NEXT_PUBLIC_` prefix.
+
+1. In Google Cloud, create or select a project.
+2. Enable **Cloud Vision API** for that project.
+3. Create an API key in **APIs & Services > Credentials**.
+4. Restrict the key to **Cloud Vision API** if you use API restrictions.
+5. In Vercel, open **Project > Settings > Environment Variables**.
+6. Add `GOOGLE_CLOUD_VISION_API_KEY` for **Production**. Add it for **Preview** and **Development** too if you test those deployments.
+7. Redeploy the Vercel project after adding or changing the variable.
+8. Test from `/add` by using **Scan book cover > Upload Photo** or **Use Camera**. With local development `?debug=true`, the review screen shows OCR source, confidence, detected title, author, ISBN, and detected text lines.
+
+When OCR succeeds, the app fills title, author, and ISBN when detected, searches Google Books by ISBN first, and then by title/author. When OCR fails or returns no useful match, manual entry stays available.
 
 ### Production Supabase Setup
 

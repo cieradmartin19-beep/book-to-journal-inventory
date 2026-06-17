@@ -5,6 +5,7 @@ const PHOTO_BUCKET = "book-photos";
 
 type SupabaseBookRow = Book & {
   book_photos?: { url: string; sort_order: number }[];
+  categories?: { name: string; color: string } | null;
 };
 
 type PublicSupabaseBookRow = Pick<
@@ -19,7 +20,9 @@ type PublicSupabaseBookRow = Pick<
   | "published_year"
   | "isbn"
   | "cover_url"
+  | "category_id"
   | "category"
+  | "category_color"
   | "book_type"
   | "condition"
   | "status"
@@ -36,9 +39,12 @@ function withPhotoUrls(book: SupabaseBookRow): Book {
     .map((photo) => photo.url)
     .filter(Boolean);
   const { book_photos, ...rest } = book;
+  const category = book.categories;
 
   return {
     ...rest,
+    category: category?.name || book.category || "Uncategorized",
+    category_color: category?.color || book.category_color || null,
     photo_urls: photoUrls
   } as Book;
 }
@@ -130,7 +136,7 @@ export async function fetchSupabaseBooks(userId: string) {
 
   const { data, error } = await supabase
     .from("books")
-    .select("*, book_photos(url, sort_order)")
+    .select("*, categories(name, color), book_photos(url, sort_order)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -144,7 +150,7 @@ export async function fetchSupabaseBook(id: string, userId: string) {
 
   const { data, error } = await supabase
     .from("books")
-    .select("*, book_photos(url, sort_order)")
+    .select("*, categories(name, color), book_photos(url, sort_order)")
     .eq("id", id)
     .eq("user_id", userId)
     .single();
@@ -168,6 +174,7 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
       published_year: book.published_year,
       isbn: book.isbn,
       cover_url: book.cover_url,
+      category_id: book.category_id || null,
       category: book.category,
       book_type: book.book_type,
       condition: book.condition,
@@ -192,7 +199,7 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
       .update({ cover_url: coverUrl, updated_at: new Date().toISOString() })
       .eq("id", bookId)
       .eq("user_id", userId)
-      .select("*, book_photos(url, sort_order)")
+      .select("*, categories(name, color), book_photos(url, sort_order)")
       .single();
 
     if (updateError) throw updateError;
@@ -218,6 +225,7 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
       published_year: updates.published_year,
       isbn: updates.isbn,
       cover_url: nextCoverUrl,
+      category_id: updates.category_id || null,
       category: updates.category,
       book_type: updates.book_type,
       condition: updates.condition,

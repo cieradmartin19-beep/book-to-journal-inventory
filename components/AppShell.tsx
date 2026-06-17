@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, LibraryBig, Plus, QrCode, Upload } from "lucide-react";
+import { BookOpen, LibraryBig, Plus, Settings, Upload } from "lucide-react";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -36,9 +36,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Upload size={18} aria-hidden />
             Batch
           </Link>
-          <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/share/demo">
-            <QrCode size={18} aria-hidden />
-            Share
+          <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/categories">
+            <Settings size={18} aria-hidden />
+            Categories
           </Link>
         </div>
       </nav>

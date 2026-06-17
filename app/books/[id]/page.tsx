@@ -6,15 +6,17 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
+import { createCategory, displayCategory, fetchCategories } from "@/lib/categories";
 import { fetchBook, updateBook } from "@/lib/inventory-repository";
 import { calculateProfit } from "@/lib/mock-data";
 import { formatMoney } from "@/lib/stats";
-import type { Book, BookDraft } from "@/lib/types";
+import type { Book, BookDraft, Category } from "@/lib/types";
 
 export default function BookDetailPage({ params }: { params: { id: string } }) {
   const [book, setBook] = useState<Book | null>(null);
   const [draft, setDraft] = useState<BookDraft | null>(null);
   const [saved, setSaved] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [pendingPhotoFiles, setPendingPhotoFiles] = useState<File[]>([]);
   const [pendingPhotoUrls, setPendingPhotoUrls] = useState<string[]>([]);
   const pendingPhotoUrlsRef = useRef<string[]>([]);
@@ -27,6 +29,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
         setDraft(editable);
       }
     });
+    void fetchCategories().then(setCategories).catch(() => setCategories([]));
   }, [params.id]);
 
   useEffect(() => {
@@ -74,6 +77,20 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
 
   const profit = calculateProfit(draft.cost, draft.sold_price);
   const galleryUrls = [...(draft.photo_urls ?? []), ...pendingPhotoUrls];
+  const category = displayCategory(draft);
+
+  async function createCategoryFromForm() {
+    const name = window.prompt("New category name");
+    if (!name?.trim()) return;
+    const created = await createCategory(name.trim());
+    setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
+    setDraft((current) => current ? {
+      ...current,
+      category_id: created.id,
+      category: created.name,
+      category_color: created.color
+    } : current);
+  }
 
   return (
     <AppShell>
@@ -94,7 +111,14 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
             <h1 className="break-words font-serif text-2xl font-black sm:text-3xl">{draft.title}</h1>
             <div className="grid gap-1 text-sm font-bold text-ink/65">
               <p>{draft.book_type}</p>
-              <p>{draft.category}</p>
+              <p>
+                <span
+                  className="inline-flex max-w-full rounded-md px-2 py-1 text-xs font-black text-ink"
+                  style={{ backgroundColor: category.color }}
+                >
+                  {category.name}
+                </span>
+              </p>
               {draft.isbn ? <p className="break-all">ISBN {draft.isbn}</p> : null}
             </div>
             <div className="rounded-lg bg-mint/20 p-3">
@@ -121,6 +145,8 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           <BookFormFields
             value={draft}
             onChange={setDraft}
+            categories={categories}
+            onCreateCategory={createCategoryFromForm}
             pendingPhotoUrls={pendingPhotoUrls}
             onPhotosSelected={addPendingPhotos}
             onRemovePendingPhoto={removePendingPhoto}

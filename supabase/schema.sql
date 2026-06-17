@@ -19,6 +19,7 @@ create table if not exists public.books (
   published_year text default '',
   isbn text default '',
   cover_url text default '',
+  category_id uuid,
   category text not null default 'Uncategorized',
   book_type text not null default 'Regular Book' check (book_type in ('Regular Book', 'Little Golden Book', 'Children''s Book', 'Vintage Book', 'Journal Project', 'Other')),
   condition text not null default 'Good' check (condition in ('Poor', 'Fair', 'Good', 'Great')),
@@ -32,6 +33,15 @@ create table if not exists public.books (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, inventory_prefix, inventory_number)
+);
+
+create table if not exists public.categories (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  color text not null default '#7CC9A7',
+  created_at timestamptz not null default now(),
+  unique (user_id, name)
 );
 
 create table if not exists public.book_photos (
@@ -51,9 +61,18 @@ alter table public.books
   add constraint books_status_check
   check (status in ('Inventory', 'Ready to Convert', 'In Progress', 'Finished Journal', 'Listed', 'Sold'));
 
+alter table public.books
+  drop constraint if exists books_category_id_fkey;
+
+alter table public.books
+  add constraint books_category_id_fkey
+  foreign key (category_id) references public.categories(id) on delete set null;
+
 create index if not exists books_user_id_idx on public.books(user_id);
 create index if not exists books_user_prefix_idx on public.books(user_id, inventory_prefix);
 create index if not exists books_public_idx on public.books(user_id, show_public);
+create index if not exists books_category_id_idx on public.books(category_id);
+create index if not exists categories_user_id_idx on public.categories(user_id);
 create index if not exists book_photos_book_id_idx on public.book_photos(book_id);
 create index if not exists book_photos_user_id_idx on public.book_photos(user_id);
 
@@ -74,6 +93,7 @@ set
 alter table public.profiles enable row level security;
 alter table public.books enable row level security;
 alter table public.book_photos enable row level security;
+alter table public.categories enable row level security;
 
 drop policy if exists "Users can read their profile" on public.profiles;
 create policy "Users can read their profile"
@@ -108,6 +128,26 @@ create policy "Users can update their books"
 drop policy if exists "Users can delete their books" on public.books;
 create policy "Users can delete their books"
   on public.books for delete
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read their categories" on public.categories;
+create policy "Users can read their categories"
+  on public.categories for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their categories" on public.categories;
+create policy "Users can insert their categories"
+  on public.categories for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their categories" on public.categories;
+create policy "Users can update their categories"
+  on public.categories for update
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their categories" on public.categories;
+create policy "Users can delete their categories"
+  on public.categories for delete
   using (auth.uid() = user_id);
 
 drop policy if exists "Users can read their book photos" on public.book_photos;
@@ -162,24 +202,47 @@ create policy "Users can delete their book photo files"
 drop function if exists public.get_public_library_books(text);
 drop view if exists public.public_library_books;
 
+create or replace function public.ensure_default_categories(target_user_id uuid)
+returns void as $$
+begin
+  insert into public.categories (user_id, name, color)
+  values
+    (target_user_id, 'Little Golden Books', '#F6C453'),
+    (target_user_id, 'Children''s Books', '#7CC9A7'),
+    (target_user_id, 'Disney', '#8FB7E8'),
+    (target_user_id, 'Christmas', '#D95D5D'),
+    (target_user_id, 'Religious', '#B99BE8'),
+    (target_user_id, 'Vintage', '#D9A66A'),
+    (target_user_id, 'Ready to Convert', '#F2A65A'),
+    (target_user_id, 'Finished Journals', '#8CCB88'),
+    (target_user_id, 'Listed', '#76B7B2'),
+    (target_user_id, 'Sold', '#B7B7B7')
+  on conflict (user_id, name) do nothing;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+select public.ensure_default_categories(id) from public.profiles;
+
 create or replace view public.public_library_books as
 select
-  id,
-  inventory_prefix,
-  inventory_number,
-  inventory_id,
-  title,
-  author,
-  publisher,
-  published_year,
-  isbn,
-  cover_url,
-  category,
-  book_type,
-  condition,
-  status,
-  listed_price,
-  show_public,
+  books.id,
+  books.inventory_prefix,
+  books.inventory_number,
+  books.inventory_id,
+  books.title,
+  books.author,
+  books.publisher,
+  books.published_year,
+  books.isbn,
+  books.cover_url,
+  books.category_id,
+  coalesce(categories.name, books.category, 'Uncategorized') as category,
+  categories.color as category_color,
+  books.book_type,
+  books.condition,
+  books.status,
+  books.listed_price,
+  books.show_public,
   coalesce(
     (
       select array_agg(photo.url order by photo.sort_order)
@@ -188,8 +251,9 @@ select
     ),
     array[]::text[]
   ) as photo_urls,
-  created_at
+  books.created_at
 from public.books
+left join public.categories on categories.id = books.category_id
 where show_public = true;
 
 grant select on public.public_library_books to anon, authenticated;
@@ -200,6 +264,7 @@ begin
   insert into public.profiles (id)
   values (new.id)
   on conflict (id) do nothing;
+  perform public.ensure_default_categories(new.id);
   return new;
 end;
 $$ language plpgsql security definer set search_path = public;
@@ -221,7 +286,9 @@ returns table (
   published_year text,
   isbn text,
   cover_url text,
+  category_id uuid,
   category text,
+  category_color text,
   book_type text,
   condition text,
   status text,
@@ -243,7 +310,9 @@ begin
     b.published_year,
     b.isbn,
     b.cover_url,
+    b.category_id,
     b.category,
+    b.category_color,
     b.book_type,
     b.condition,
     b.status,

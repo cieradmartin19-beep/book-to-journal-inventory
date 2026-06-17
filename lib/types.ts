@@ -35,7 +35,9 @@ export type Book = {
   isbn: string;
   cover_url: string;
   photo_urls: string[];
+  category_id?: string | null;
   category: string;
+  category_color?: string | null;
   book_type: BookType;
   condition: BookCondition;
   cost: number;
@@ -47,6 +49,14 @@ export type Book = {
   show_public: boolean;
   created_at?: string;
   updated_at?: string;
+};
+
+export type Category = {
+  id: string;
+  user_id?: string | null;
+  name: string;
+  color: string;
+  created_at?: string;
 };
 
 export type BookPhoto = {
