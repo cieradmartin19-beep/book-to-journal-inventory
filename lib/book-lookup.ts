@@ -1,6 +1,7 @@
 "use client";
 
-import { BarcodeFormat, BrowserMultiFormatReader } from "@zxing/browser";
+import { BarcodeFormat, BrowserMultiFormatOneDReader } from "@zxing/browser";
+import { DecodeHintType } from "@zxing/library";
 import type { BookDraft, GoogleBookSuggestion } from "@/lib/types";
 
 export type OcrDebugInfo = {
@@ -11,20 +12,28 @@ export type OcrDebugInfo = {
   titleScore?: number;
   detectedIsbn?: string;
   error?: string;
+  status?: number;
+  statusText?: string;
 };
 
 export type GoogleBooksLookupDiagnostics = {
   googleBooksApiEnabled?: boolean;
+  isbnDbApiEnabled?: boolean;
   query?: string;
   matchesReturned?: number;
   apiError?: string;
+  provider?: string;
+  providerQueries?: string[];
+  providerErrors?: string[];
 };
 
 export type CoverScanDiagnostics = {
   ocrEnabled: boolean;
   googleBooksApiEnabled: boolean;
+  isbnDbApiEnabled?: boolean;
   ocrTextDetected: string;
   googleBooksQueries: string[];
+  providerQueries?: string[];
   matchesReturned: number;
   apiErrors: string[];
   failureReason: string;
@@ -45,7 +54,9 @@ export function blankDraft(cover = ""): BookDraft {
     book_type: "Regular Book",
     condition: "Good",
     cost: 0,
+    status_id: null,
     status: "Inventory",
+    status_color: null,
     listed_price: 0,
     sold_price: 0,
     notes: "",
@@ -131,6 +142,13 @@ function compactDetectedText(text: string) {
     .join(" ");
 }
 
+function firstDetectedTextLine(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .find((line) => line && !/isbn|barcode|copyright|www\.|\.com/i.test(line)) ?? "";
+}
+
 function mergeSuggestions(groups: GoogleBookSuggestion[][]) {
   const seen = new Set<string>();
   const merged: GoogleBookSuggestion[] = [];
@@ -187,6 +205,7 @@ export async function scanCoverForBook(image: string) {
   const detectedTitle = identify.detectedTitle || "";
   const detectedAuthor = identify.detectedAuthor || "";
   const detectedIsbn = identify.detectedIsbn || "";
+  const detectedTextFallbackTitle = firstDetectedTextLine(identify.detectedText || "");
   const detectedTextQuery = compactDetectedText(identify.detectedText || "");
   const lookups = [];
 
@@ -199,18 +218,27 @@ export async function scanCoverForBook(image: string) {
     { suggestions: [] as GoogleBookSuggestion[], error: false, message: "" };
   const suggestions = mergeSuggestions(lookups.map((result) => result.suggestions));
   const googleBooksQueries = lookups.map((result) => result.diagnostics?.query).filter(Boolean) as string[];
+  const providerQueries = lookups.flatMap((result) => result.diagnostics?.providerQueries ?? []);
   const apiErrors = [
     identify.debug?.error,
-    ...lookups.map((result) => result.diagnostics?.apiError || (result.error ? result.message : "")).filter(Boolean)
+    ...lookups
+      .flatMap((result) => [
+        result.diagnostics?.apiError,
+        ...(result.diagnostics?.providerErrors ?? []),
+        result.error ? result.message : ""
+      ])
+      .filter(Boolean)
   ].filter(Boolean) as string[];
   const googleBooksApiEnabled = lookups.some((result) => result.diagnostics?.googleBooksApiEnabled);
+  const isbnDbApiEnabled = lookups.some((result) => result.diagnostics?.isbnDbApiEnabled);
   const matchesReturned = suggestions.length;
+  const fallbackTitle = detectedTitle || detectedTextFallbackTitle;
   const failureReason = suggestions.length > 0
     ? ""
     : apiErrors[0] ||
       (!identify.debug?.hasApiKey ? "GOOGLE_CLOUD_VISION_API_KEY is not configured, so OCR could not run." : "") ||
       (!detectedTitle && !detectedIsbn && !detectedTextQuery ? "OCR did not detect enough searchable text." : "") ||
-      "Google Books returned no matches for the detected cover text.";
+      "Google Books, Open Library, ISBNdb, and Internet Archive returned no matches for the detected cover text.";
 
   return {
     detectedTitle,
@@ -227,15 +255,17 @@ export async function scanCoverForBook(image: string) {
     diagnostics: {
       ocrEnabled: Boolean(identify.debug?.hasApiKey),
       googleBooksApiEnabled,
+      isbnDbApiEnabled,
       ocrTextDetected: identify.detectedText || "",
       googleBooksQueries,
+      providerQueries,
       matchesReturned,
       apiErrors,
       failureReason
     } satisfies CoverScanDiagnostics,
     suggestions,
     suggestion: suggestions[0] ?? {
-      title: detectedTitle,
+      title: fallbackTitle,
       author: detectedAuthor,
       publisher: "",
       published_year: "",
@@ -249,24 +279,41 @@ export async function scanCoverForBook(image: string) {
 export function scannedValueToIsbn(value: string) {
   const raw = cleanIsbn(value);
 
+  const embeddedIsbn13 = raw.match(/97[89]\d{10}/)?.[0];
+  if (embeddedIsbn13) return embeddedIsbn13;
+
   if (raw.length === 13 && (raw.startsWith("978") || raw.startsWith("979"))) return raw;
-  if (raw.length === 10) return raw;
+  if (raw.length === 12) {
+    const leadingZeroEan = `0${raw}`;
+    if (leadingZeroEan.startsWith("978") || leadingZeroEan.startsWith("979")) return leadingZeroEan;
+  }
+  if (/^\d{9}[\dX]$/.test(raw)) return raw;
+
   return "";
 }
 
 export function createIsbnBarcodeReader() {
-  const codeReader = new BrowserMultiFormatReader();
-  codeReader.possibleFormats = [
+  const possibleFormats = [
     BarcodeFormat.EAN_13,
-    BarcodeFormat.EAN_8,
     BarcodeFormat.UPC_A,
+    BarcodeFormat.EAN_8,
     BarcodeFormat.UPC_E,
     BarcodeFormat.CODE_128
   ];
+  const hints = new Map<DecodeHintType, unknown>([
+    [DecodeHintType.POSSIBLE_FORMATS, possibleFormats],
+    [DecodeHintType.TRY_HARDER, true]
+  ]);
+  const codeReader = new BrowserMultiFormatOneDReader(hints, {
+    delayBetweenScanAttempts: 50,
+    delayBetweenScanSuccess: 250,
+    tryPlayVideoTimeout: 7000
+  });
+  codeReader.possibleFormats = possibleFormats;
   return codeReader;
 }
 
-export async function detectIsbnFromImage(imageDataUrl: string) {
+export async function decodeBarcodeFromImage(imageDataUrl: string) {
   const image = await new Promise<HTMLImageElement>((resolve, reject) => {
     const element = new Image();
     element.onload = () => resolve(element);
@@ -274,9 +321,19 @@ export async function detectIsbnFromImage(imageDataUrl: string) {
     element.src = imageDataUrl;
   });
 
+  const result = await createIsbnBarcodeReader().decodeFromImageElement(image);
+  const raw = result.getText();
+  return {
+    raw,
+    isbn: scannedValueToIsbn(raw),
+    format: result.getBarcodeFormat()?.toString?.() || ""
+  };
+}
+
+export async function detectIsbnFromImage(imageDataUrl: string) {
   try {
-    const result = await createIsbnBarcodeReader().decodeFromImageElement(image);
-    return scannedValueToIsbn(result.getText());
+    const result = await decodeBarcodeFromImage(imageDataUrl);
+    return result.isbn;
   } catch {
     return "";
   }

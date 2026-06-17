@@ -7,7 +7,7 @@ Mobile-friendly Next.js app for scanning, searching, manually entering, catalogi
 - Add any book three ways: scan barcode/ISBN, scan or upload a cover photo, or type a title manually.
 - ISBN-first lookup: Google Books is searched by ISBN when one is available.
 - Barcode photos and live barcode scanning use `@zxing/browser`; typing or pasting ISBN is always available as the fallback.
-- Cover fallback: when there is no ISBN, the app can use Google Cloud Vision OCR to detect cover title, author, and ISBN text, then search Google Books by ISBN or title.
+- Cover fallback: when there is no ISBN, the app can use Google Cloud Vision OCR to detect cover title, author, and ISBN text, then search Google Books first, then Open Library, ISBNdb when configured, and Internet Archive.
 - Manual entry is always available for missing barcodes, damaged barcodes, old ISBNs, and no-result books.
 - Batch Add flow for uploading multiple cover photos and reviewing each result before saving.
 - Custom inventory prefixes: `GB`, `BK`, `JRN`, or your own prefix.
@@ -35,7 +35,7 @@ Copy `.env.example` to `.env.local` and fill in the services you want to enable.
 cp .env.example .env.local
 ```
 
-`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` enable Supabase persistence. `GOOGLE_CLOUD_VISION_API_KEY` powers server-side cover OCR. `GOOGLE_BOOKS_API_KEY` is optional for book detail lookup.
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` enable Supabase persistence. `GOOGLE_CLOUD_VISION_API_KEY` powers server-side cover OCR. `GOOGLE_BOOKS_API_KEY` is optional for book detail lookup. `ISBNDB_API_KEY` is optional and is used only as a fallback when Google Books has no match and an ISBN exists.
 
 Optional local debugging: open the dashboard with `?debug=true`, for example `http://localhost:3000/?debug=true`.
 
@@ -178,6 +178,7 @@ Recommended for full scan/lookup behavior:
 ```bash
 GOOGLE_CLOUD_VISION_API_KEY=your-google-cloud-vision-api-key
 GOOGLE_BOOKS_API_KEY=your-google-books-api-key
+ISBNDB_API_KEY=your-isbndb-api-key
 ```
 
 Do not add Supabase service role keys to Vercel for this browser app.

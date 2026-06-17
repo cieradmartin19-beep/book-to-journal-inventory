@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IScannerControls } from "@zxing/browser";
-import { Barcode, Camera, RefreshCw, Square } from "lucide-react";
-import { createIsbnBarcodeReader, scannedValueToIsbn } from "@/lib/book-lookup";
+import { Barcode, Camera, RefreshCw, Square, Upload } from "lucide-react";
+import {
+  createIsbnBarcodeReader,
+  decodeBarcodeFromImage,
+  fileToDataUrl,
+  scannedValueToIsbn
+} from "@/lib/book-lookup";
 
 type ScannerDiagnostics = {
   currentUrl: string;
@@ -13,6 +18,7 @@ type ScannerDiagnostics = {
   cameraPermissionState: string;
   availableDevices: MediaDeviceInfo[];
   selectedDeviceId: string;
+  detectedBarcode: string;
   startError: string;
   decodeError: string;
 };
@@ -51,6 +57,7 @@ function initialDiagnostics(): ScannerDiagnostics {
     cameraPermissionState: "unknown",
     availableDevices: [],
     selectedDeviceId: "",
+    detectedBarcode: "",
     startError: "",
     decodeError: ""
   };
@@ -58,6 +65,7 @@ function initialDiagnostics(): ScannerDiagnostics {
 
 export default function LiveBarcodeScanner({ disabled = false, onDetected }: LiveBarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
   const activeModeRef = useRef<"idle" | "test" | "scan">("idle");
@@ -101,6 +109,22 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     });
   }, [updateDiagnostics]);
 
+  async function applyContinuousFocus(stream: MediaStream) {
+    const track = stream.getVideoTracks()[0];
+    if (!track?.getCapabilities || !track.applyConstraints) return;
+
+    try {
+      const capabilities = track.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] };
+      if (capabilities.focusMode?.includes("continuous")) {
+        await track.applyConstraints({
+          advanced: [{ focusMode: "continuous" } as unknown as MediaTrackConstraintSet]
+        });
+      }
+    } catch (error) {
+      updateDiagnostics({ decodeError: `Continuous autofocus unavailable: ${describeError(error)}` });
+    }
+  }
+
   const stopCamera = useCallback((nextStatus = "Camera stopped.", refreshAfterStop = true) => {
     activeModeRef.current = "idle";
     scannerControlsRef.current?.stop();
@@ -130,7 +154,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
   }, [refreshDiagnostics, stopCamera]);
 
   async function openCameraStream() {
-    updateDiagnostics({ startError: "", decodeError: "" });
+    updateDiagnostics({ startError: "", decodeError: "", detectedBarcode: "" });
 
     if (!navigator.mediaDevices) {
       throw new Error("navigator.mediaDevices does not exist in this browser.");
@@ -142,9 +166,14 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
 
     const preferredDevice = diagnostics.availableDevices.find((device) => /back|rear|environment/i.test(device.label));
     const selectedDeviceId = diagnostics.selectedDeviceId || preferredDevice?.deviceId || "";
+    const sharpVideoConstraints = {
+      width: { ideal: 1920 },
+      height: { ideal: 1080 },
+      frameRate: { ideal: 30, max: 60 }
+    } satisfies MediaTrackConstraints;
     const videoConstraints: MediaTrackConstraints = selectedDeviceId
-      ? { deviceId: { exact: selectedDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-      : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } };
+      ? { ...sharpVideoConstraints, deviceId: { exact: selectedDeviceId } }
+      : { ...sharpVideoConstraints, facingMode: { ideal: "environment" } };
 
     const stream = await navigator.mediaDevices.getUserMedia({
       audio: false,
@@ -152,6 +181,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     });
 
     streamRef.current = stream;
+    await applyContinuousFocus(stream);
     const track = stream.getVideoTracks()[0];
     const settings = track?.getSettings?.();
     const nextDeviceId = settings?.deviceId || selectedDeviceId;
@@ -169,6 +199,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
 
   async function testCamera() {
     setDetectedIsbn("");
+    updateDiagnostics({ detectedBarcode: "", decodeError: "" });
     setStatus("Opening camera preview...");
     stopCamera("Opening camera preview...");
     setMode("test");
@@ -189,6 +220,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
 
   async function startBarcodeScan() {
     setDetectedIsbn("");
+    updateDiagnostics({ detectedBarcode: "", decodeError: "" });
     setStatus("Starting barcode scanner...");
     stopCamera("Starting barcode scanner...");
     setMode("scan");
@@ -211,6 +243,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
         if (!result) return;
 
         const raw = result.getText();
+        updateDiagnostics({ detectedBarcode: raw, decodeError: "" });
         const isbn = scannedValueToIsbn(raw);
         if (!isbn) {
           updateDiagnostics({ decodeError: `Barcode detected, but not an ISBN: ${raw}` });
@@ -235,6 +268,42 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     }
   }
 
+  async function decodeUploadedBarcodePhoto(file: File) {
+    setDetectedIsbn("");
+    setStatus("Decoding uploaded barcode photo...");
+    updateDiagnostics({ detectedBarcode: "", startError: "", decodeError: "" });
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const result = await decodeBarcodeFromImage(dataUrl);
+      updateDiagnostics({
+        detectedBarcode: result.raw,
+        decodeError: result.isbn ? "" : `Barcode detected, but not an ISBN: ${result.raw}`
+      });
+
+      if (!result.isbn) {
+        setStatus("Barcode found, but it was not an ISBN. Try another barcode photo or enter it manually.");
+        return;
+      }
+
+      setDetectedIsbn(result.isbn);
+      setStatus(`Detected ISBN ${result.isbn}. Looking up book details...`);
+      onDetected(result.isbn);
+    } catch (error) {
+      const message = describeError(error);
+      updateDiagnostics({ decodeError: message });
+      setStatus("No barcode could be detected from that photo. Try a clearer close-up or enter the ISBN manually.");
+    } finally {
+      if (uploadInputRef.current) uploadInputRef.current.value = "";
+    }
+  }
+
+  function handleBarcodePhotoUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    void decodeUploadedBarcodePhoto(file);
+  }
+
   const hasNoCamera =
     (diagnostics.cameraPermissionState === "granted" && diagnostics.availableDevices.length === 0) ||
     /NotFoundError|DevicesNotFoundError|No camera/i.test(diagnostics.startError);
@@ -242,7 +311,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
 
   return (
     <div className="grid gap-3">
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-4">
         <button className="btn-secondary w-full" disabled={disabled || mode !== "idle"} onClick={testCamera}>
           <Camera size={20} aria-hidden />
           Test Camera
@@ -255,6 +324,22 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
           <Square size={20} aria-hidden />
           Stop Camera
         </button>
+        <button
+          className="btn-secondary w-full"
+          disabled={disabled}
+          onClick={() => uploadInputRef.current?.click()}
+          type="button"
+        >
+          <Upload size={20} aria-hidden />
+          Upload Barcode Photo
+        </button>
+        <input
+          ref={uploadInputRef}
+          accept="image/*"
+          className="hidden"
+          onChange={handleBarcodePhotoUpload}
+          type="file"
+        />
       </div>
 
       {detectedIsbn ? (
@@ -309,6 +394,10 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
           <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
             <dt>Selected camera deviceId</dt>
             <dd className="break-all text-ink">{diagnostics.selectedDeviceId || "none"}</dd>
+          </div>
+          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
+            <dt>Detected barcode</dt>
+            <dd className="break-all text-ink">{diagnostics.detectedBarcode || "none"}</dd>
           </div>
           <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
             <dt>Video input devices</dt>

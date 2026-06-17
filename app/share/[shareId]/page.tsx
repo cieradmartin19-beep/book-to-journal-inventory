@@ -5,6 +5,7 @@ import Image from "next/image";
 import { BookOpen, ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { displayCategory } from "@/lib/categories";
+import { displayStatus } from "@/lib/statuses";
 import { fetchPublicBooks } from "@/lib/inventory-repository";
 import type { Book } from "@/lib/types";
 
@@ -83,6 +84,7 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
           <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
             {books.filter((book) => categoryFilter === "All" || displayCategory(book).name === categoryFilter).map((book) => {
               const category = displayCategory(book);
+              const status = displayStatus(book);
 
               return (
                 <article className="panel min-w-0 overflow-hidden" key={book.id}>
@@ -104,7 +106,9 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
                     {category.name}
                   </span>
                   <span className="max-w-full truncate rounded-md bg-honey/35 px-2 py-1 text-xs font-bold">{book.book_type}</span>
-                  <span className="max-w-full truncate rounded-md bg-rose/15 px-2 py-1 text-xs font-bold">{book.status}</span>
+                  <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: status.color }}>
+                    {status.name}
+                  </span>
                 </div>
               </div>
             </article>

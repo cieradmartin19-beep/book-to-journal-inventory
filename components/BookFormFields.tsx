@@ -1,7 +1,8 @@
 "use client";
 
-import { bookTypes, conditions, statuses, type Book } from "@/lib/types";
+import { bookTypes, conditions, type Book } from "@/lib/types";
 import type { Category } from "@/lib/types";
+import type { CustomStatus } from "@/lib/types";
 
 type EditableBook = Omit<Book, "id" | "inventory_id" | "inventory_prefix" | "inventory_number" | "profit">;
 
@@ -10,6 +11,8 @@ export function BookFormFields({
   onChange,
   categories = [],
   onCreateCategory,
+  statuses = [],
+  onCreateStatus,
   pendingPhotoUrls = [],
   onPhotosSelected,
   onRemovePendingPhoto
@@ -18,6 +21,8 @@ export function BookFormFields({
   onChange: (book: EditableBook) => void;
   categories?: Category[];
   onCreateCategory?: () => void;
+  statuses?: CustomStatus[];
+  onCreateStatus?: () => void;
   pendingPhotoUrls?: string[];
   onPhotosSelected?: (files: File[]) => void;
   onRemovePendingPhoto?: (index: number) => void;
@@ -28,6 +33,10 @@ export function BookFormFields({
 
   const savedPhotoUrls = value.photo_urls ?? [];
   const allPhotoUrls = [...savedPhotoUrls, ...pendingPhotoUrls];
+  const legacyCategoryValue = !value.category_id && value.category && value.category !== "Uncategorized" ? `legacy:${value.category}` : "";
+  const categorySelectValue = value.category_id ?? legacyCategoryValue;
+  const legacyStatusValue = !value.status_id && value.status && !statuses.some((item) => item.name === value.status) ? `legacy:${value.status}` : "";
+  const statusSelectValue = value.status_id ?? legacyStatusValue;
 
   return (
     <div className="grid gap-4">
@@ -137,12 +146,13 @@ export function BookFormFields({
           <span className="label">Category</span>
           <select
             className="field"
-            value={value.category_id ?? ""}
+            value={categorySelectValue}
             onChange={(event) => {
               if (event.target.value === "__new") {
                 onCreateCategory?.();
                 return;
               }
+              if (event.target.value.startsWith("legacy:")) return;
 
               const category = categories.find((item) => item.id === event.target.value);
               onChange({
@@ -154,6 +164,7 @@ export function BookFormFields({
             }}
           >
             <option value="">Uncategorized</option>
+            {legacyCategoryValue ? <option value={legacyCategoryValue}>{value.category}</option> : null}
             {categories.map((category) => (
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
@@ -176,8 +187,31 @@ export function BookFormFields({
         </label>
         <label className="grid gap-2">
           <span className="label">Status</span>
-          <select className="field" value={value.status} onChange={(event) => set("status", event.target.value as EditableBook["status"])}>
-            {statuses.map((status) => <option key={status}>{status}</option>)}
+          <select
+            className="field"
+            value={statusSelectValue}
+            onChange={(event) => {
+              if (event.target.value === "__new") {
+                onCreateStatus?.();
+                return;
+              }
+              if (event.target.value.startsWith("legacy:")) return;
+
+              const status = statuses.find((item) => item.id === event.target.value);
+              onChange({
+                ...value,
+                status_id: status?.id ?? null,
+                status: (status?.name ?? "Inventory") as EditableBook["status"],
+                status_color: status?.color ?? null
+              });
+            }}
+          >
+            {statuses.length === 0 ? <option value="">Inventory</option> : null}
+            {legacyStatusValue ? <option value={legacyStatusValue}>{value.status}</option> : null}
+            {statuses.map((status) => (
+              <option key={status.id} value={status.id}>{status.name}</option>
+            ))}
+            <option value="__new">+ New Status</option>
           </select>
         </label>
       </div>

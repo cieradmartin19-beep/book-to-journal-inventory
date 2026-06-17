@@ -8,10 +8,11 @@ import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
 import { InventoryPrefixSettings } from "@/components/InventoryPrefixSettings";
 import { createCategory, fetchCategories } from "@/lib/categories";
+import { createStatus, fetchStatuses } from "@/lib/statuses";
 import { blankDraft, fileToDataUrl, scanCoverForBook, suggestionToDraft } from "@/lib/book-lookup";
 import { createBook, fetchBooks } from "@/lib/inventory-repository";
 import { nextInventoryId } from "@/lib/mock-data";
-import type { Book, BookDraft, Category, GoogleBookSuggestion } from "@/lib/types";
+import type { Book, BookDraft, Category, CustomStatus, GoogleBookSuggestion } from "@/lib/types";
 
 type BatchItem = {
   id: string;
@@ -30,10 +31,12 @@ export default function BatchAddPage() {
   const [items, setItems] = useState<BatchItem[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
 
   useEffect(() => {
     void fetchBooks().then((items) => setBooks(items ?? []));
     void fetchCategories().then(setCategories).catch(() => setCategories([]));
+    void fetchStatuses().then(setCustomStatuses).catch(() => setCustomStatuses([]));
   }, []);
 
   const firstNextId = useMemo(() => {
@@ -119,6 +122,28 @@ export default function BatchAddPage() {
                 category_id: category.id,
                 category: category.name,
                 category_color: category.color
+              }
+            }
+          : item
+      )
+    );
+  }
+
+  async function createStatusForItem(id: string) {
+    const name = window.prompt("New status name");
+    if (!name?.trim()) return;
+    const status = await createStatus(name.trim(), "#E9E1D2", customStatuses.length);
+    setCustomStatuses((current) => [...current, status].sort((a, b) => a.sort_order - b.sort_order));
+    setItems((current) =>
+      current.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              draft: {
+                ...item.draft,
+                status_id: status.id,
+                status: status.name,
+                status_color: status.color
               }
             }
           : item
@@ -295,6 +320,8 @@ export default function BatchAddPage() {
                     onChange={(draft) => updateItem(item.id, draft)}
                     categories={categories}
                     onCreateCategory={() => createCategoryForItem(item.id)}
+                    statuses={customStatuses}
+                    onCreateStatus={() => createStatusForItem(item.id)}
                   />
                 </>
               )}

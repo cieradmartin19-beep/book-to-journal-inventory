@@ -21,6 +21,7 @@ import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
 import { InventoryPrefixSettings } from "@/components/InventoryPrefixSettings";
 import { createCategory, fetchCategories } from "@/lib/categories";
+import { createStatus, fetchStatuses } from "@/lib/statuses";
 import {
   blankDraft,
   cleanIsbn,
@@ -33,7 +34,7 @@ import {
 import type { CoverScanDiagnostics, OcrDebugInfo } from "@/lib/book-lookup";
 import { createBook, fetchBooks } from "@/lib/inventory-repository";
 import { nextInventoryId } from "@/lib/mock-data";
-import type { Book, BookDraft, GoogleBookSuggestion } from "@/lib/types";
+import type { Book, BookDraft, CustomStatus, GoogleBookSuggestion } from "@/lib/types";
 import type { Category } from "@/lib/types";
 
 const LiveBarcodeScanner = dynamic(() => import("@/components/LiveBarcodeScanner"), {
@@ -63,6 +64,7 @@ export default function AddBookPage() {
   const [statusText, setStatusText] = useState("Choose how you want to add this book.");
   const [books, setBooks] = useState<Book[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
   const [toast, setToast] = useState("");
   const [pendingPhotoFiles, setPendingPhotoFiles] = useState<File[]>([]);
   const [pendingPhotoUrls, setPendingPhotoUrls] = useState<string[]>([]);
@@ -88,6 +90,7 @@ export default function AddBookPage() {
   useEffect(() => {
     void fetchBooks().then((items) => setBooks(items ?? []));
     void fetchCategories().then(setCategories).catch(() => setCategories([]));
+    void fetchStatuses().then(setCustomStatuses).catch(() => setCustomStatuses([]));
   }, []);
 
   useEffect(() => {
@@ -141,6 +144,22 @@ export default function AddBookPage() {
     }
   }
 
+  async function applyCoverCameraFocus(stream: MediaStream) {
+    const track = stream.getVideoTracks()[0];
+    if (!track?.getCapabilities || !track.applyConstraints) return;
+
+    try {
+      const capabilities = track.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] };
+      if (capabilities.focusMode?.includes("continuous")) {
+        await track.applyConstraints({
+          advanced: [{ focusMode: "continuous" } as unknown as MediaTrackConstraintSet]
+        });
+      }
+    } catch {
+      // Some browsers expose focus capabilities but reject focus constraints. The cover photo still works.
+    }
+  }
+
   async function startCoverCamera() {
     if (!navigator.mediaDevices?.getUserMedia) {
       setCoverCameraOpen(true);
@@ -157,11 +176,13 @@ export default function AddBookPage() {
         audio: false,
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 960 }
+          width: { ideal: 1920 },
+          height: { ideal: 2560 },
+          frameRate: { ideal: 30, max: 60 }
         }
       });
       coverStreamRef.current = stream;
+      await applyCoverCameraFocus(stream);
 
       const video = coverVideoRef.current;
       if (!video) throw new Error("Camera preview is unavailable.");
@@ -292,7 +313,36 @@ export default function AddBookPage() {
     if (capturedCoverFile) {
       addPendingPhotos([capturedCoverFile]);
     }
-    const result = await scanCoverForBook(image);
+
+    let result: Awaited<ReturnType<typeof scanCoverForBook>>;
+    try {
+      result = await scanCoverForBook(image);
+      console.log("[cover-scan-client-debug] cover scan result", {
+        detectedTitle: result.detectedTitle,
+        detectedAuthor: result.detectedAuthor,
+        detectedIsbn: result.detectedIsbn,
+        ocrText: result.detectedText,
+        matchesReturned: result.suggestions.length,
+        matchSources: result.suggestions.map((match) => match.source || "unknown"),
+        diagnostics: result.diagnostics
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "We couldn't identify this book automatically.";
+      console.error("[cover-scan-client-debug] cover scan error", message);
+      setLookupError("We couldn't identify this book automatically. You can still enter it manually.");
+      setStatusText("We couldn't identify this book automatically. You can still enter it manually.");
+      setCoverScanDiagnostics({
+        ocrEnabled: false,
+        googleBooksApiEnabled: false,
+        ocrTextDetected: "",
+        googleBooksQueries: [],
+        matchesReturned: 0,
+        apiErrors: [message],
+        failureReason: message
+      });
+      setStep("review");
+      return;
+    }
     setOcrDebug({
       detectedTitle: result.detectedTitle,
       detectedAuthor: result.detectedAuthor,
@@ -304,9 +354,16 @@ export default function AddBookPage() {
       debug: result.debug
     });
     setCoverScanDiagnostics(result.diagnostics);
+    const ocrFallbackTitle =
+      result.detectedTitle ||
+      result.detectedText
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\s+/g, " ").trim())
+        .find((line) => line && !/isbn|barcode|copyright|www\.|\.com/i.test(line)) ||
+      "";
     const ocrDraft = {
       ...blankDraft(image),
-      title: result.detectedTitle,
+      title: ocrFallbackTitle,
       author: result.detectedAuthor,
       isbn: result.detectedIsbn
     };
@@ -425,6 +482,19 @@ export default function AddBookPage() {
     }));
   }
 
+  async function createStatusFromForm() {
+    const name = window.prompt("New status name");
+    if (!name?.trim()) return;
+    const status = await createStatus(name.trim(), "#E9E1D2", customStatuses.length);
+    setCustomStatuses((current) => [...current, status].sort((a, b) => a.sort_order - b.sort_order));
+    setDraft((current) => ({
+      ...current,
+      status_id: status.id,
+      status: status.name,
+      status_color: status.color
+    }));
+  }
+
   return (
     <AppShell>
       <div className="mb-5 grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-between">
@@ -508,7 +578,7 @@ export default function AddBookPage() {
             <div className="rounded-lg bg-mint/20 p-3 sm:p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Camera size={22} aria-hidden />
-                <h2 className="text-lg font-black sm:text-xl">2. Scan book cover</h2>
+                <h2 className="text-lg font-black sm:text-xl">2. Take front cover photo</h2>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <button className="btn-primary w-full" onClick={startCoverCamera}>
@@ -535,7 +605,7 @@ export default function AddBookPage() {
                   <div className="grid gap-2 sm:grid-cols-2">
                     <button className="btn-primary w-full" onClick={captureCoverPhoto}>
                       <Camera size={20} aria-hidden />
-                      Capture Cover
+                      Capture Front Cover
                     </button>
                     <button className="btn-secondary w-full" onClick={() => stopCoverCamera()}>
                       Stop Camera
@@ -549,7 +619,7 @@ export default function AddBookPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={coverScanPreview} alt="Captured or uploaded book cover preview" className="h-full w-full object-cover" />
                   </div>
-                  <p className="p-3 text-sm font-bold text-ink/65">Cover photo ready for recognition.</p>
+                  <p className="p-3 text-sm font-bold text-ink/65">Front cover photo ready for OCR and Google Books matching.</p>
                 </div>
               ) : null}
             </div>
@@ -687,11 +757,11 @@ export default function AddBookPage() {
                       </pre>
                     </div>
                     <div className="rounded-lg bg-ink/5 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Google Books query sent</p>
+                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Book lookup queries sent</p>
                       <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
-                        {coverScanDiagnostics.googleBooksQueries.length
-                          ? coverScanDiagnostics.googleBooksQueries.join("\n")
-                          : "No Google Books query was sent."}
+                        {[...coverScanDiagnostics.googleBooksQueries, ...(coverScanDiagnostics.providerQueries ?? [])].length
+                          ? [...coverScanDiagnostics.googleBooksQueries, ...(coverScanDiagnostics.providerQueries ?? [])].join("\n")
+                          : "No provider query was sent."}
                       </pre>
                     </div>
                     <div className={`rounded-lg p-3 ${coverScanDiagnostics.apiErrors.length || coverScanDiagnostics.failureReason ? "bg-rose/15" : "bg-mint/20"}`}>
@@ -709,7 +779,7 @@ export default function AddBookPage() {
               {suggestions.length > 0 && (
                 <div className="grid gap-3">
                   <div>
-                    <p className="text-sm font-black uppercase tracking-wide text-marigold">Google Books matches</p>
+                    <p className="text-sm font-black uppercase tracking-wide text-marigold">Top book matches</p>
                     <p className="mt-1 text-sm font-semibold text-ink/65">Select the cover/title that matches your book, then edit anything below.</p>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
@@ -744,6 +814,11 @@ export default function AddBookPage() {
                             <span className="mt-2 block truncate text-xs font-bold text-ink/50">
                               {[match.publisher, match.published_year, match.isbn].filter(Boolean).join(" - ") || "Google Books"}
                             </span>
+                            {match.source ? (
+                              <span className="mt-1 inline-flex rounded-full bg-mint/25 px-2 py-1 text-[11px] font-black text-ink/60">
+                                {match.source}
+                              </span>
+                            ) : null}
                           </span>
                         </button>
                       );
@@ -792,6 +867,8 @@ export default function AddBookPage() {
                 onChange={setDraft}
                 categories={categories}
                 onCreateCategory={createCategoryFromForm}
+                statuses={customStatuses}
+                onCreateStatus={createStatusFromForm}
                 pendingPhotoUrls={pendingPhotoUrls}
                 onPhotosSelected={addPendingPhotos}
                 onRemovePendingPhoto={removePendingPhoto}

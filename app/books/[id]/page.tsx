@@ -7,16 +7,18 @@ import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
 import { createCategory, displayCategory, fetchCategories } from "@/lib/categories";
+import { createStatus, displayStatus, fetchStatuses } from "@/lib/statuses";
 import { fetchBook, updateBook } from "@/lib/inventory-repository";
 import { calculateProfit } from "@/lib/mock-data";
 import { formatMoney } from "@/lib/stats";
-import type { Book, BookDraft, Category } from "@/lib/types";
+import type { Book, BookDraft, Category, CustomStatus } from "@/lib/types";
 
 export default function BookDetailPage({ params }: { params: { id: string } }) {
   const [book, setBook] = useState<Book | null>(null);
   const [draft, setDraft] = useState<BookDraft | null>(null);
   const [saved, setSaved] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
   const [pendingPhotoFiles, setPendingPhotoFiles] = useState<File[]>([]);
   const [pendingPhotoUrls, setPendingPhotoUrls] = useState<string[]>([]);
   const pendingPhotoUrlsRef = useRef<string[]>([]);
@@ -30,6 +32,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       }
     });
     void fetchCategories().then(setCategories).catch(() => setCategories([]));
+    void fetchStatuses().then(setCustomStatuses).catch(() => setCustomStatuses([]));
   }, [params.id]);
 
   useEffect(() => {
@@ -78,6 +81,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
   const profit = calculateProfit(draft.cost, draft.sold_price);
   const galleryUrls = [...(draft.photo_urls ?? []), ...pendingPhotoUrls];
   const category = displayCategory(draft);
+  const customStatus = displayStatus(draft);
 
   async function createCategoryFromForm() {
     const name = window.prompt("New category name");
@@ -89,6 +93,19 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       category_id: created.id,
       category: created.name,
       category_color: created.color
+    } : current);
+  }
+
+  async function createStatusFromForm() {
+    const name = window.prompt("New status name");
+    if (!name?.trim()) return;
+    const created = await createStatus(name.trim(), "#E9E1D2", customStatuses.length);
+    setCustomStatuses((current) => [...current, created].sort((a, b) => a.sort_order - b.sort_order));
+    setDraft((current) => current ? {
+      ...current,
+      status_id: created.id,
+      status: created.name,
+      status_color: created.color
     } : current);
   }
 
@@ -111,6 +128,14 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
             <h1 className="break-words font-serif text-2xl font-black sm:text-3xl">{draft.title}</h1>
             <div className="grid gap-1 text-sm font-bold text-ink/65">
               <p>{draft.book_type}</p>
+              <p>
+                <span
+                  className="inline-flex max-w-full rounded-md px-2 py-1 text-xs font-black text-ink"
+                  style={{ backgroundColor: customStatus.color }}
+                >
+                  {customStatus.name}
+                </span>
+              </p>
               <p>
                 <span
                   className="inline-flex max-w-full rounded-md px-2 py-1 text-xs font-black text-ink"
@@ -147,6 +172,8 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
             onChange={setDraft}
             categories={categories}
             onCreateCategory={createCategoryFromForm}
+            statuses={customStatuses}
+            onCreateStatus={createStatusFromForm}
             pendingPhotoUrls={pendingPhotoUrls}
             onPhotosSelected={addPendingPhotos}
             onRemovePendingPhoto={removePendingPhoto}

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BookOpen, LibraryBig, Plus, Settings, Upload } from "lucide-react";
+import { BookOpen, LibraryBig, ListChecks, Plus, Settings, Upload } from "lucide-react";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
       <main className="flex-1">{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-ink/10 bg-paper/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-4 gap-1.5">
+        <div className="mx-auto grid max-w-md grid-cols-5 gap-1.5">
           <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/">
             <LibraryBig size={18} aria-hidden />
             Library
@@ -39,6 +39,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/categories">
             <Settings size={18} aria-hidden />
             Categories
+          </Link>
+          <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/statuses">
+            <ListChecks size={18} aria-hidden />
+            Statuses
           </Link>
         </div>
       </nav>

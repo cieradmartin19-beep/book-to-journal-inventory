@@ -4,11 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { displayCategory } from "@/lib/categories";
+import { displayStatus } from "@/lib/statuses";
 import type { Book } from "@/lib/types";
 import { formatMoney } from "@/lib/stats";
 
 export function BookCard({ book }: { book: Book }) {
   const category = displayCategory(book);
+  const status = displayStatus(book);
 
   return (
     <Link
@@ -37,7 +39,9 @@ export function BookCard({ book }: { book: Book }) {
             {category.name}
           </span>
           <span className="max-w-full truncate rounded-md bg-honey/35 px-2 py-1 text-xs font-bold">{book.book_type}</span>
-          <span className="max-w-full truncate rounded-md bg-rose/15 px-2 py-1 text-xs font-bold">{book.status}</span>
+          <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: status.color }}>
+            {status.name}
+          </span>
         </div>
         <div className="flex items-center justify-between gap-2 text-xs font-bold text-ink/65">
           <span className="min-w-0 truncate">{book.status === "Sold" ? formatMoney(book.profit) : book.condition}</span>

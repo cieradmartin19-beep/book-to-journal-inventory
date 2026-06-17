@@ -6,6 +6,7 @@ const PHOTO_BUCKET = "book-photos";
 type SupabaseBookRow = Book & {
   book_photos?: { url: string; sort_order: number }[];
   categories?: { name: string; color: string } | null;
+  statuses?: { name: string; color: string; sort_order: number } | null;
 };
 
 type PublicSupabaseBookRow = Pick<
@@ -23,6 +24,8 @@ type PublicSupabaseBookRow = Pick<
   | "category_id"
   | "category"
   | "category_color"
+  | "status_id"
+  | "status_color"
   | "book_type"
   | "condition"
   | "status"
@@ -40,11 +43,14 @@ function withPhotoUrls(book: SupabaseBookRow): Book {
     .filter(Boolean);
   const { book_photos, ...rest } = book;
   const category = book.categories;
+  const status = book.statuses;
 
   return {
     ...rest,
     category: category?.name || book.category || "Uncategorized",
     category_color: category?.color || book.category_color || null,
+    status: status?.name || book.status || "Inventory",
+    status_color: status?.color || book.status_color || null,
     photo_urls: photoUrls
   } as Book;
 }
@@ -136,11 +142,20 @@ export async function fetchSupabaseBooks(userId: string) {
 
   const { data, error } = await supabase
     .from("books")
-    .select("*, categories(name, color), book_photos(url, sort_order)")
+    .select("*, categories(name, color), statuses(name, color, sort_order), book_photos(url, sort_order)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await supabase
+      .from("books")
+      .select("*, book_photos(url, sort_order)")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (fallback.error) throw fallback.error;
+    return (fallback.data as SupabaseBookRow[]).map(withPhotoUrls);
+  }
+
   return (data as SupabaseBookRow[]).map(withPhotoUrls);
 }
 
@@ -150,12 +165,22 @@ export async function fetchSupabaseBook(id: string, userId: string) {
 
   const { data, error } = await supabase
     .from("books")
-    .select("*, categories(name, color), book_photos(url, sort_order)")
+    .select("*, categories(name, color), statuses(name, color, sort_order), book_photos(url, sort_order)")
     .eq("id", id)
     .eq("user_id", userId)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    const fallback = await supabase
+      .from("books")
+      .select("*, book_photos(url, sort_order)")
+      .eq("id", id)
+      .eq("user_id", userId)
+      .single();
+    if (fallback.error) throw fallback.error;
+    return withPhotoUrls(fallback.data as SupabaseBookRow);
+  }
+
   return withPhotoUrls(data as SupabaseBookRow);
 }
 
@@ -179,6 +204,7 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
       book_type: book.book_type,
       condition: book.condition,
       cost: book.cost,
+      status_id: book.status_id || null,
       status: book.status,
       listed_price: book.listed_price,
       sold_price: book.sold_price,
@@ -199,7 +225,7 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
       .update({ cover_url: coverUrl, updated_at: new Date().toISOString() })
       .eq("id", bookId)
       .eq("user_id", userId)
-      .select("*, categories(name, color), book_photos(url, sort_order)")
+      .select("*, categories(name, color), statuses(name, color, sort_order), book_photos(url, sort_order)")
       .single();
 
     if (updateError) throw updateError;
@@ -230,6 +256,7 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
       book_type: updates.book_type,
       condition: updates.condition,
       cost: updates.cost,
+      status_id: updates.status_id || null,
       status: updates.status,
       listed_price: updates.listed_price,
       sold_price: updates.sold_price,

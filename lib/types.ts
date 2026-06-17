@@ -19,7 +19,7 @@ export const bookTypes = [
 ] as const;
 
 export type BookCondition = (typeof conditions)[number];
-export type BookStatus = (typeof statuses)[number];
+export type BookStatus = string;
 export type BookType = (typeof bookTypes)[number];
 
 export type Book = {
@@ -38,6 +38,8 @@ export type Book = {
   category_id?: string | null;
   category: string;
   category_color?: string | null;
+  status_id?: string | null;
+  status_color?: string | null;
   book_type: BookType;
   condition: BookCondition;
   cost: number;
@@ -56,6 +58,15 @@ export type Category = {
   user_id?: string | null;
   name: string;
   color: string;
+  created_at?: string;
+};
+
+export type CustomStatus = {
+  id: string;
+  user_id?: string | null;
+  name: string;
+  color: string;
+  sort_order: number;
   created_at?: string;
 };
 
@@ -83,6 +94,7 @@ export type GoogleBookSuggestion = {
   thumbnail: string;
   category: string;
   description?: string;
+  source?: string;
 };
 
 export type DashboardStats = {

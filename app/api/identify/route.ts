@@ -8,6 +8,23 @@ type VisionAnnotateResponse = {
   }>;
 };
 
+const OCR_LOG_PREFIX = "[cover-ocr-debug]";
+const GOOGLE_VISION_ENDPOINT = "https://vision.googleapis.com/v1/images:annotate";
+
+class ApiResponseError extends Error {
+  constructor(
+    message: string,
+    readonly details: {
+      status?: number;
+      statusText?: string;
+      responseBody?: string;
+    } = {}
+  ) {
+    super(message);
+    this.name = "ApiResponseError";
+  }
+}
+
 function imageDataUrlToBase64(image: string) {
   return image.includes(",") ? image.split(",").pop() ?? "" : image;
 }
@@ -75,9 +92,19 @@ function extractCoverText(text: string) {
 
 async function detectWithGoogleVision(image: string) {
   const key = process.env.GOOGLE_CLOUD_VISION_API_KEY;
+  console.log(`${OCR_LOG_PREFIX} request received`, {
+    hasApiKey: Boolean(key),
+    keyLength: key?.length ?? 0,
+    imageChars: image.length
+  });
   if (!key) return null;
 
-  const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${key}`, {
+  console.log(`${OCR_LOG_PREFIX} Vision endpoint`, {
+    endpoint: GOOGLE_VISION_ENDPOINT,
+    usesKeyQueryParam: true
+  });
+
+  const response = await fetch(`${GOOGLE_VISION_ENDPOINT}?key=${key}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -91,12 +118,30 @@ async function detectWithGoogleVision(image: string) {
   });
 
   if (!response.ok) {
-    throw new Error("Google Cloud Vision OCR request failed. Manual entry is ready.");
+    const detail = await response.text().catch(() => "");
+    console.error(`${OCR_LOG_PREFIX} Google Vision HTTP error`, {
+      status: response.status,
+      statusText: response.statusText,
+      responseBody: detail
+    });
+    throw new ApiResponseError(
+      `Google Cloud Vision OCR request failed (${response.status} ${response.statusText}). ${detail}`,
+      {
+        status: response.status,
+        statusText: response.statusText,
+        responseBody: detail
+      }
+    );
   }
 
   const data = (await response.json()) as VisionAnnotateResponse;
   const result = data.responses?.[0];
-  if (result?.error?.message) throw new Error(result.error.message);
+  if (result?.error?.message) {
+    console.error(`${OCR_LOG_PREFIX} Google Vision API error`, result.error.message);
+    throw new ApiResponseError(result.error.message, {
+      responseBody: JSON.stringify(result.error)
+    });
+  }
 
   const detectedText = result?.fullTextAnnotation?.text ?? result?.textAnnotations?.[0]?.description ?? "";
   const extracted = extractCoverText(detectedText);
@@ -106,6 +151,16 @@ async function detectWithGoogleVision(image: string) {
     : extracted.detectedTitle
       ? 0.82
       : 0;
+
+  console.log(`${OCR_LOG_PREFIX} OCR text returned by Google Vision`, {
+    textLength: detectedText.length,
+    lineCount: extracted.lines.length,
+    detectedTitle: extracted.detectedTitle,
+    detectedAuthor: extracted.detectedAuthor,
+    detectedIsbn: extracted.detectedIsbn,
+    confidence: averageConfidence,
+    text: detectedText
+  });
 
   return {
     ...extracted,
@@ -141,6 +196,12 @@ export async function POST(request: Request) {
       });
     }
   } catch (error) {
+    const message = error instanceof Error ? error.message : "OCR failed. Manual entry is ready.";
+    const responseBody = error instanceof ApiResponseError ? error.details.responseBody : "";
+    console.error(`${OCR_LOG_PREFIX} OCR route error`, {
+      message,
+      responseBody
+    });
     return NextResponse.json({
       detectedTitle: "",
       detectedAuthor: "",
@@ -148,10 +209,12 @@ export async function POST(request: Request) {
       detectedText: "",
       confidence: 0,
       source: "google-cloud-vision",
-      message: error instanceof Error ? error.message : "OCR failed. Manual entry is ready.",
+      message,
       debug: {
         hasApiKey: Boolean(process.env.GOOGLE_CLOUD_VISION_API_KEY),
-        error: error instanceof Error ? error.message : "Unknown OCR error"
+        error: responseBody || message,
+        status: error instanceof ApiResponseError ? error.details.status : undefined,
+        statusText: error instanceof ApiResponseError ? error.details.statusText : undefined
       }
     });
   }

@@ -24,7 +24,8 @@ create table if not exists public.books (
   book_type text not null default 'Regular Book' check (book_type in ('Regular Book', 'Little Golden Book', 'Children''s Book', 'Vintage Book', 'Journal Project', 'Other')),
   condition text not null default 'Good' check (condition in ('Poor', 'Fair', 'Good', 'Great')),
   cost numeric(10, 2) not null default 0,
-  status text not null default 'Inventory' check (status in ('Inventory', 'Ready to Convert', 'In Progress', 'Finished Journal', 'Listed', 'Sold')),
+  status_id uuid,
+  status text not null default 'Inventory',
   listed_price numeric(10, 2) not null default 0,
   sold_price numeric(10, 2) not null default 0,
   profit numeric(10, 2) generated always as (sold_price - cost) stored,
@@ -44,6 +45,16 @@ create table if not exists public.categories (
   unique (user_id, name)
 );
 
+create table if not exists public.statuses (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  color text not null default '#E9E1D2',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  unique (user_id, name)
+);
+
 create table if not exists public.book_photos (
   id uuid primary key default uuid_generate_v4(),
   book_id uuid not null references public.books(id) on delete cascade,
@@ -58,21 +69,27 @@ alter table public.books
   drop constraint if exists books_status_check;
 
 alter table public.books
-  add constraint books_status_check
-  check (status in ('Inventory', 'Ready to Convert', 'In Progress', 'Finished Journal', 'Listed', 'Sold'));
-
-alter table public.books
   drop constraint if exists books_category_id_fkey;
 
 alter table public.books
   add constraint books_category_id_fkey
   foreign key (category_id) references public.categories(id) on delete set null;
 
+alter table public.books
+  drop constraint if exists books_status_id_fkey;
+
+alter table public.books
+  add constraint books_status_id_fkey
+  foreign key (status_id) references public.statuses(id) on delete set null;
+
 create index if not exists books_user_id_idx on public.books(user_id);
 create index if not exists books_user_prefix_idx on public.books(user_id, inventory_prefix);
 create index if not exists books_public_idx on public.books(user_id, show_public);
 create index if not exists books_category_id_idx on public.books(category_id);
+create index if not exists books_status_id_idx on public.books(status_id);
 create index if not exists categories_user_id_idx on public.categories(user_id);
+create index if not exists statuses_user_id_idx on public.statuses(user_id);
+create index if not exists statuses_user_sort_idx on public.statuses(user_id, sort_order);
 create index if not exists book_photos_book_id_idx on public.book_photos(book_id);
 create index if not exists book_photos_user_id_idx on public.book_photos(user_id);
 
@@ -94,6 +111,7 @@ alter table public.profiles enable row level security;
 alter table public.books enable row level security;
 alter table public.book_photos enable row level security;
 alter table public.categories enable row level security;
+alter table public.statuses enable row level security;
 
 drop policy if exists "Users can read their profile" on public.profiles;
 create policy "Users can read their profile"
@@ -148,6 +166,26 @@ create policy "Users can update their categories"
 drop policy if exists "Users can delete their categories" on public.categories;
 create policy "Users can delete their categories"
   on public.categories for delete
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read their statuses" on public.statuses;
+create policy "Users can read their statuses"
+  on public.statuses for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their statuses" on public.statuses;
+create policy "Users can insert their statuses"
+  on public.statuses for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their statuses" on public.statuses;
+create policy "Users can update their statuses"
+  on public.statuses for update
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their statuses" on public.statuses;
+create policy "Users can delete their statuses"
+  on public.statuses for delete
   using (auth.uid() = user_id);
 
 drop policy if exists "Users can read their book photos" on public.book_photos;
@@ -223,6 +261,39 @@ $$ language plpgsql security definer set search_path = public;
 
 select public.ensure_default_categories(id) from public.profiles;
 
+create or replace function public.ensure_default_statuses(target_user_id uuid)
+returns void as $$
+begin
+  insert into public.statuses (user_id, name, color, sort_order)
+  values
+    (target_user_id, 'Inventory', '#E9E1D2', 0),
+    (target_user_id, 'Ready to Convert', '#F2A65A', 1),
+    (target_user_id, 'In Progress', '#8FB7E8', 2),
+    (target_user_id, 'Finished Journal', '#8CCB88', 3),
+    (target_user_id, 'Listed', '#76B7B2', 4),
+    (target_user_id, 'Sold', '#B7B7B7', 5)
+  on conflict (user_id, name) do nothing;
+
+  insert into public.statuses (user_id, name, color, sort_order)
+  select distinct books.user_id, books.status, '#E9E1D2', 999
+  from public.books
+  where books.user_id = target_user_id
+    and books.status is not null
+    and books.status <> ''
+  on conflict (user_id, name) do nothing;
+
+  update public.books
+  set status_id = statuses.id
+  from public.statuses
+  where books.user_id = target_user_id
+    and statuses.user_id = books.user_id
+    and statuses.name = books.status
+    and books.status_id is null;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+select public.ensure_default_statuses(id) from public.profiles;
+
 create or replace view public.public_library_books as
 select
   books.id,
@@ -240,7 +311,9 @@ select
   categories.color as category_color,
   books.book_type,
   books.condition,
-  books.status,
+  books.status_id,
+  coalesce(statuses.name, books.status, 'Inventory') as status,
+  statuses.color as status_color,
   books.listed_price,
   books.show_public,
   coalesce(
@@ -254,6 +327,7 @@ select
   books.created_at
 from public.books
 left join public.categories on categories.id = books.category_id
+left join public.statuses on statuses.id = books.status_id
 where show_public = true;
 
 grant select on public.public_library_books to anon, authenticated;
@@ -265,6 +339,7 @@ begin
   values (new.id)
   on conflict (id) do nothing;
   perform public.ensure_default_categories(new.id);
+  perform public.ensure_default_statuses(new.id);
   return new;
 end;
 $$ language plpgsql security definer set search_path = public;
@@ -291,7 +366,9 @@ returns table (
   category_color text,
   book_type text,
   condition text,
+  status_id uuid,
   status text,
+  status_color text,
   listed_price numeric,
   show_public boolean,
   photo_urls text[],
@@ -315,7 +392,9 @@ begin
     b.category_color,
     b.book_type,
     b.condition,
+    b.status_id,
     b.status,
+    b.status_color,
     b.listed_price,
     b.show_public,
     b.photo_urls,

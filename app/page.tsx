@@ -1,24 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { Copy, ExternalLink, Plus, QrCode, Search, Settings, Upload } from "lucide-react";
+import { Copy, ExternalLink, ListChecks, Plus, QrCode, Search, Settings, Upload } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
-import { DashboardStats } from "@/components/DashboardStats";
+import { CustomDashboardStats } from "@/components/DashboardStats";
 import { InventoryPrefixSettings } from "@/components/InventoryPrefixSettings";
 import { QRCodeBox } from "@/components/QRCodeBox";
 import { fetchCategories } from "@/lib/categories";
+import { fetchStatuses } from "@/lib/statuses";
 import { fetchBooks, getPersistenceStatus, getPublicSharePath, type PersistenceStatus } from "@/lib/inventory-repository";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import { getDashboardStats } from "@/lib/stats";
-import { statuses, type Book, type Category } from "@/lib/types";
+import type { Book, Category, CustomStatus } from "@/lib/types";
 
 const isDevelopment = process.env.NODE_ENV === "development";
 
 export default function HomePage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
   const [booksLoading, setBooksLoading] = useState(true);
   const [booksError, setBooksError] = useState("");
   const [fetchDebug, setFetchDebug] = useState({
@@ -70,7 +71,12 @@ export default function HomePage() {
 
       if (!mounted) return;
 
-      const [booksResult, shareResult, categoriesResult] = await Promise.allSettled([fetchBooks(), getPublicSharePath(), fetchCategories()]);
+      const [booksResult, shareResult, categoriesResult, statusesResult] = await Promise.allSettled([
+        fetchBooks(),
+        getPublicSharePath(),
+        fetchCategories(),
+        fetchStatuses()
+      ]);
 
       if (!mounted) return;
 
@@ -112,6 +118,12 @@ export default function HomePage() {
         setCategories([]);
       }
 
+      if (statusesResult.status === "fulfilled") {
+        setCustomStatuses(statusesResult.value ?? []);
+      } else {
+        setCustomStatuses([]);
+      }
+
       setBooksLoading(false);
     }
 
@@ -151,7 +163,8 @@ export default function HomePage() {
       const matchesQuery = searchable.includes(query.toLowerCase());
       const legacyCategoryKey = `legacy:${book.category || "Uncategorized"}`;
       const matchesCategory = category === "All" || book.category_id === category || (!book.category_id && legacyCategoryKey === category);
-      const matchesStatus = status === "All" || book.status === status;
+      const legacyStatusKey = `legacy:${book.status || "Inventory"}`;
+      const matchesStatus = status === "All" || book.status_id === status || (!book.status_id && legacyStatusKey === status);
       return matchesQuery && matchesCategory && matchesStatus;
     });
   }, [books, category, query, status]);
@@ -163,6 +176,14 @@ export default function HomePage() {
     const options = [...categories.map((item) => ({ id: item.id, name: item.name })), ...legacy];
     return Array.from(new Map(options.map((item) => [item.id, item])).values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [books, categories]);
+
+  const statusOptions = useMemo(() => {
+    const legacy = books
+      .filter((book) => !book.status_id && book.status)
+      .map((book) => ({ id: `legacy:${book.status}`, name: book.status }));
+    const options = [...customStatuses.map((item) => ({ id: item.id, name: item.name })), ...legacy];
+    return Array.from(new Map(options.map((item) => [item.id, item])).values());
+  }, [books, customStatuses]);
 
   const currentUserId = persistence.userId ?? "";
   const showSupabaseDebugPanel = isDevelopment && debugMode;
@@ -279,6 +300,10 @@ commit;` : "";
                 <Settings size={20} aria-hidden />
                 Categories
               </Link>
+              <Link href="/statuses" className="btn-secondary">
+                <ListChecks size={20} aria-hidden />
+                Statuses
+              </Link>
               <Link href="/add" className="btn-primary">
                 <Plus size={20} aria-hidden />
                 Add Book
@@ -286,7 +311,7 @@ commit;` : "";
             </div>
           </div>
 
-          <DashboardStats stats={getDashboardStats(books)} />
+          <CustomDashboardStats books={books} statuses={customStatuses} />
 
           <div className="mt-5 rounded-lg border-2 border-ink/10 bg-white/80 p-3 text-sm font-bold text-ink/70">
             {persistence.mode === "supabase" ? "Supabase connected" : persistence.mode === "error" ? "Supabase error" : "Local mode"}:{" "}
@@ -385,8 +410,8 @@ commit;` : "";
               {categoryOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
             <select className="field" value={status} onChange={(event) => setStatus(event.target.value)}>
-              <option>All</option>
-              {statuses.map((item) => <option key={item}>{item}</option>)}
+              <option value="All">All statuses</option>
+              {statusOptions.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
           </div>
 
