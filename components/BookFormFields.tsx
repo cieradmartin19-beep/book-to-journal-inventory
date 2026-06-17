@@ -1,6 +1,6 @@
 "use client";
 
-import { bookTypes, conditions, type Book } from "@/lib/types";
+import { conditions, type Book } from "@/lib/types";
 import type { Category } from "@/lib/types";
 import type { CustomStatus } from "@/lib/types";
 
@@ -141,43 +141,35 @@ export function BookFormFields({
           )}
         </div>
       ) : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="grid gap-2">
-          <span className="label">Category</span>
-          <select
-            className="field"
-            value={categorySelectValue}
-            onChange={(event) => {
-              if (event.target.value === "__new") {
-                onCreateCategory?.();
-                return;
-              }
-              if (event.target.value.startsWith("legacy:")) return;
+      <label className="grid gap-2">
+        <span className="label">Category</span>
+        <select
+          className="field"
+          value={categorySelectValue}
+          onChange={(event) => {
+            if (event.target.value === "__new") {
+              onCreateCategory?.();
+              return;
+            }
+            if (event.target.value.startsWith("legacy:")) return;
 
-              const category = categories.find((item) => item.id === event.target.value);
-              onChange({
-                ...value,
-                category_id: category?.id ?? null,
-                category: category?.name ?? "Uncategorized",
-                category_color: category?.color ?? null
-              });
-            }}
-          >
-            <option value="">Uncategorized</option>
-            {legacyCategoryValue ? <option value={legacyCategoryValue}>{value.category}</option> : null}
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
-            <option value="__new">+ New Category</option>
-          </select>
-        </label>
-        <label className="grid gap-2">
-          <span className="label">Book type</span>
-          <select className="field" value={value.book_type} onChange={(event) => set("book_type", event.target.value as EditableBook["book_type"])}>
-            {bookTypes.map((bookType) => <option key={bookType}>{bookType}</option>)}
-          </select>
-        </label>
-      </div>
+            const category = categories.find((item) => item.id === event.target.value);
+            onChange({
+              ...value,
+              category_id: category?.id ?? null,
+              category: category?.name ?? "Uncategorized",
+              category_color: category?.color ?? null
+            });
+          }}
+        >
+          <option value="">Uncategorized</option>
+          {legacyCategoryValue ? <option value={legacyCategoryValue}>{value.category}</option> : null}
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>{category.name}</option>
+          ))}
+          <option value="__new">+ New Category</option>
+        </select>
+      </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2">
           <span className="label">Condition</span>

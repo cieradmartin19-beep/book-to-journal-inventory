@@ -127,7 +127,6 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
             <p className="text-sm font-black uppercase tracking-wide text-marigold">{book.inventory_id}</p>
             <h1 className="break-words font-serif text-2xl font-black sm:text-3xl">{draft.title}</h1>
             <div className="grid gap-1 text-sm font-bold text-ink/65">
-              <p>{draft.book_type}</p>
               <p>
                 <span
                   className="inline-flex max-w-full rounded-md px-2 py-1 text-xs font-black text-ink"

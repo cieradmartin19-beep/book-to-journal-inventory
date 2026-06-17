@@ -38,7 +38,6 @@ export function BookCard({ book }: { book: Book }) {
           <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: category.color }}>
             {category.name}
           </span>
-          <span className="max-w-full truncate rounded-md bg-honey/35 px-2 py-1 text-xs font-bold">{book.book_type}</span>
           <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: status.color }}>
             {status.name}
           </span>

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { IScannerControls } from "@zxing/browser";
-import { Barcode, Camera, RefreshCw, Square, Upload } from "lucide-react";
+import { Barcode, Camera, Square, Upload } from "lucide-react";
 import {
   createIsbnBarcodeReader,
   decodeBarcodeFromImage,
@@ -34,19 +34,7 @@ function describeError(error: unknown) {
   return String(error || "Unknown error");
 }
 
-function cameraHelp(error: string) {
-  if (!error) return "";
-  if (/NotAllowedError|SecurityError|PermissionDeniedError|denied/i.test(error)) {
-    return "Camera permission was denied. In Safari, tap AA or the lock icon in the address bar, open Website Settings, and allow Camera. In Chrome, click the lock icon beside the URL, allow Camera, then reload.";
-  }
-  if (/NotFoundError|DevicesNotFoundError|OverconstrainedError|No camera/i.test(error)) {
-    return "No camera was found. Use manual ISBN entry or upload a barcode photo.";
-  }
-  if (/https|secure|mediaDevices|getUserMedia/i.test(error)) {
-    return "Live camera scanning requires HTTPS in production or localhost during development.";
-  }
-  return "Use manual ISBN entry or upload a barcode photo if live scanning is blocked.";
-}
+const SCANNER_FALLBACK_MESSAGE = "Scanner couldn't read the barcode. Try again, upload a barcode photo, or type the ISBN.";
 
 function initialDiagnostics(): ScannerDiagnostics {
   return {
@@ -70,7 +58,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
   const scannerControlsRef = useRef<IScannerControls | null>(null);
   const activeModeRef = useRef<"idle" | "test" | "scan">("idle");
   const [mode, setMode] = useState<"idle" | "test" | "scan">("idle");
-  const [status, setStatus] = useState("Camera diagnostics are ready.");
+  const [status, setStatus] = useState("Ready to scan a barcode.");
   const [detectedIsbn, setDetectedIsbn] = useState("");
   const [diagnostics, setDiagnostics] = useState<ScannerDiagnostics>(() => initialDiagnostics());
 
@@ -212,7 +200,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     } catch (error) {
       const message = describeError(error);
       updateDiagnostics({ startError: message });
-      setStatus(message);
+      setStatus("Camera couldn't start. Try again, upload a barcode photo, or type the ISBN.");
       setMode("idle");
       activeModeRef.current = "idle";
     }
@@ -247,7 +235,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
         const isbn = scannedValueToIsbn(raw);
         if (!isbn) {
           updateDiagnostics({ decodeError: `Barcode detected, but not an ISBN: ${raw}` });
-          setStatus("Barcode found, but it was not an ISBN. Try the ISBN barcode or enter it manually.");
+          setStatus(SCANNER_FALLBACK_MESSAGE);
           return;
         }
 
@@ -263,8 +251,8 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     } catch (error) {
       const message = describeError(error);
       updateDiagnostics({ startError: message });
-      setStatus(message);
-      stopCamera(message);
+      setStatus(SCANNER_FALLBACK_MESSAGE);
+      stopCamera(SCANNER_FALLBACK_MESSAGE);
     }
   }
 
@@ -282,7 +270,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
       });
 
       if (!result.isbn) {
-        setStatus("Barcode found, but it was not an ISBN. Try another barcode photo or enter it manually.");
+        setStatus(SCANNER_FALLBACK_MESSAGE);
         return;
       }
 
@@ -292,7 +280,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     } catch (error) {
       const message = describeError(error);
       updateDiagnostics({ decodeError: message });
-      setStatus("No barcode could be detected from that photo. Try a clearer close-up or enter the ISBN manually.");
+      setStatus(SCANNER_FALLBACK_MESSAGE);
     } finally {
       if (uploadInputRef.current) uploadInputRef.current.value = "";
     }
@@ -303,11 +291,6 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     if (!file) return;
     void decodeUploadedBarcodePhoto(file);
   }
-
-  const hasNoCamera =
-    (diagnostics.cameraPermissionState === "granted" && diagnostics.availableDevices.length === 0) ||
-    /NotFoundError|DevicesNotFoundError|No camera/i.test(diagnostics.startError);
-  const helpText = cameraHelp(diagnostics.startError || diagnostics.decodeError);
 
   return (
     <div className="grid gap-3">
@@ -354,72 +337,6 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
           ) : null}
         </div>
         <p className="text-sm font-bold text-ink/75">{status}</p>
-        {hasNoCamera ? (
-          <p className="rounded-lg bg-rose/15 p-3 text-sm font-bold text-ink">
-            No camera found. Use manual ISBN entry.
-          </p>
-        ) : null}
-        {helpText ? <p className="rounded-lg bg-honey/25 p-3 text-sm font-bold text-ink/75">{helpText}</p> : null}
-      </div>
-
-      <div className="rounded-lg border-2 border-ink/10 bg-white p-3">
-        <div className="mb-2 flex items-center justify-between gap-3">
-          <p className="text-sm font-black uppercase tracking-wide text-marigold">Scanner diagnostics</p>
-          <button className="inline-flex items-center gap-1 text-sm font-black text-ink/70" onClick={refreshDiagnostics}>
-            <RefreshCw size={15} aria-hidden />
-            Refresh
-          </button>
-        </div>
-        <dl className="grid gap-2 text-xs font-bold text-ink/70">
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>Current URL</dt>
-            <dd className="break-all text-ink">{diagnostics.currentUrl || "unknown"}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>HTTPS or localhost?</dt>
-            <dd className="text-ink">{diagnostics.isHttps ? "yes" : "no"}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>mediaDevices exists?</dt>
-            <dd className="text-ink">{diagnostics.mediaDevicesExists ? "yes" : "no"}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>getUserMedia exists?</dt>
-            <dd className="text-ink">{diagnostics.getUserMediaExists ? "yes" : "no"}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>Camera permission</dt>
-            <dd className="break-words text-ink">{diagnostics.cameraPermissionState}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>Selected camera deviceId</dt>
-            <dd className="break-all text-ink">{diagnostics.selectedDeviceId || "none"}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>Detected barcode</dt>
-            <dd className="break-all text-ink">{diagnostics.detectedBarcode || "none"}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>Video input devices</dt>
-            <dd className="grid gap-1 text-ink">
-              {diagnostics.availableDevices.length
-                ? diagnostics.availableDevices.map((device, index) => (
-                    <span className="break-all" key={device.deviceId || index}>
-                      {device.label || `Camera ${index + 1}`} ({device.deviceId || "no deviceId"})
-                    </span>
-                  ))
-                : "none listed"}
-            </dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>Scanner start errors</dt>
-            <dd className="break-words text-ink">{diagnostics.startError || "none"}</dd>
-          </div>
-          <div className="grid gap-1 sm:grid-cols-[170px_minmax(0,1fr)]">
-            <dt>Scanner decode errors</dt>
-            <dd className="break-words text-ink">{diagnostics.decodeError || "none"}</dd>
-          </div>
-        </dl>
       </div>
     </div>
   );
