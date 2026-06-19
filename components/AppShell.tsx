@@ -56,34 +56,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-3 sm:px-6 sm:pt-4 lg:px-8">
-      <header className="mb-3 flex items-center justify-between gap-3 border-b border-gold/30 py-3 sm:mb-5">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-gold/30 py-3 sm:mb-5 xl:flex-nowrap">
+        <Link href="/" className="flex min-w-0 flex-1 items-center gap-3 lg:min-w-[340px]">
           <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-gold bg-gold text-ink shadow-soft sm:h-12 sm:w-12">
             <BookOpen size={26} aria-hidden />
           </span>
           <span className="min-w-0">
-            <span className="block truncate font-serif text-xl font-black leading-6 text-paper sm:text-2xl">The Paper Curio</span>
-            <span className="block truncate text-xs font-bold text-paper/60 sm:text-sm">Curated Books • Handmade Journals • Creative Collections</span>
+            <span className="block font-serif text-xl font-black leading-6 text-paper sm:text-2xl">The Paper Curio</span>
+            <span className="block text-xs font-bold text-paper/60 sm:text-sm">Curated Books • Handmade Journals • Creative Collections</span>
           </span>
         </Link>
-        <div className="hidden items-center gap-2 lg:flex">
+        <div className="hidden flex-wrap items-center justify-end gap-1.5 lg:flex">
           {(!isSupabaseConfigured || user) ? <>
-            <Link className="btn-secondary" href="/">Home</Link>
-            <Link className="btn-secondary" href="/library">Library</Link>
-            <Link className="btn-primary" href="/add"><Plus size={18} aria-hidden />Add Book</Link>
-            <Link className="btn-secondary" href="/categories">Categories</Link>
-            <Link className="btn-secondary" href="/statuses">Statuses</Link>
-            <Link className="btn-secondary" href="/orders"><ClipboardList size={18} aria-hidden />Orders</Link>
+            <Link className="btn-secondary btn-web-compact" href="/">Home</Link>
+            <Link className="btn-secondary btn-web-compact" href="/library">Library</Link>
+            <Link className="btn-primary btn-web-compact" href="/add"><Plus size={16} aria-hidden />Add Book</Link>
+            <Link className="btn-secondary btn-web-compact" href="/categories">Categories</Link>
+            <Link className="btn-secondary btn-web-compact" href="/statuses">Statuses</Link>
+            <Link className="btn-secondary btn-web-compact" href="/orders"><ClipboardList size={16} aria-hidden />Orders</Link>
           </> : null}
           {user ? (
-            <div className="flex items-center gap-2 rounded-lg border-2 border-ink/10 bg-white px-3 py-2 text-sm font-black text-ink">
-              <UserCircle size={18} aria-hidden />
+            <div className="flex items-center gap-1.5 rounded-md border-2 border-gold/45 bg-white px-2.5 py-2 text-xs font-black text-ink">
+              <UserCircle size={16} aria-hidden />
               Signed in as {displayName || "Jess"}
             </div>
           ) : null}
           {user ? (
-            <button className="btn-secondary" onClick={handleSignOut}>
-              <LogOut size={18} aria-hidden />
+            <button className="btn-secondary btn-web-compact" onClick={handleSignOut}>
+              <LogOut size={16} aria-hidden />
               Sign out
             </button>
           ) : null}

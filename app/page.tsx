@@ -44,8 +44,8 @@ export default function HomePage() {
             <h1 className="font-serif text-3xl font-black leading-tight sm:text-5xl">The Paper Curio</h1>
             <p className="page-subtitle mt-2 max-w-2xl">Curated Books • Handmade Journals • Creative Collections</p>
             <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-              <Link href="/add" className="btn-primary w-full sm:w-fit"><Plus size={20} aria-hidden />Add Book</Link>
-              <Link href={shareId ? `/custom-order?shareId=${encodeURIComponent(shareId)}` : "/custom-order"} className="btn-secondary w-full sm:w-fit"><WandSparkles size={20} aria-hidden />Request Custom Journal</Link>
+              <Link href="/add" className="btn-primary btn-web-compact w-full sm:w-fit"><Plus size={18} aria-hidden />Add Book</Link>
+              <Link href={shareId ? `/custom-order?shareId=${encodeURIComponent(shareId)}` : "/custom-order"} className="btn-secondary btn-web-compact w-full sm:w-fit"><WandSparkles size={18} aria-hidden />Request Custom Journal</Link>
             </div>
           </div>
         </div>
@@ -76,7 +76,7 @@ export default function HomePage() {
         </Link>
         <div className="panel p-5">
           <QrCode size={28} aria-hidden /><h2 className="mt-3 text-xl font-black">Public Library</h2>
-          {shareUrl ? <><div className="mt-3"><QRCodeBox value={shareUrl} /></div><div className="mt-3 grid gap-2"><button className="btn-secondary w-full" onClick={async () => { await navigator.clipboard.writeText(shareUrl); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }}><Copy size={18} aria-hidden />{copied ? "Copied" : "Copy share link"}</button><Link href={shareUrl} target="_blank" className="btn-secondary w-full"><ExternalLink size={18} aria-hidden />Preview</Link></div></> : <p className="mt-2 text-sm font-semibold text-ink/65">Share link unavailable.</p>}
+          {shareUrl ? <><div className="mt-3"><QRCodeBox value={shareUrl} /></div><div className="mt-3 grid gap-2"><button className="btn-secondary btn-web-compact w-full" onClick={async () => { await navigator.clipboard.writeText(shareUrl); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }}><Copy size={16} aria-hidden />{copied ? "Copied" : "Copy share link"}</button><Link href={shareUrl} target="_blank" className="btn-secondary btn-web-compact w-full"><ExternalLink size={16} aria-hidden />Preview</Link></div></> : <p className="mt-2 text-sm font-semibold text-ink/65">Share link unavailable.</p>}
         </div>
       </section>
     </AppShell>

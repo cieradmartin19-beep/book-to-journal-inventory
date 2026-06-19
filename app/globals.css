@@ -70,6 +70,10 @@ textarea {
     @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-md border-2 border-gold/45 bg-[#FBF7EE] px-4 py-3 text-center text-sm font-black uppercase tracking-wide leading-tight text-ink shadow-sm transition hover:border-gold hover:bg-paper sm:px-5;
   }
 
+  .btn-web-compact {
+    @apply lg:min-h-9 lg:gap-1.5 lg:px-3 lg:py-2 lg:text-xs;
+  }
+
   .panel {
     @apply rounded-lg border-2 border-gold/45 bg-paper text-ink shadow-soft;
     box-shadow: 0 16px 36px rgba(10, 9, 7, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
