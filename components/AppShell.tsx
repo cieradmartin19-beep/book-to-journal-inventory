@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { BookOpen, Home, LibraryBig, ListChecks, LogOut, Plus, Settings, UserCircle } from "lucide-react";
+import { BookOpen, ClipboardList, Home, LibraryBig, ListChecks, LogOut, Plus, Settings, UserCircle } from "lucide-react";
 import { getCurrentUser, signOut, userDisplayName } from "@/lib/auth";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -73,6 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Link className="btn-primary" href="/add"><Plus size={18} aria-hidden />Add Book</Link>
             <Link className="btn-secondary" href="/categories">Categories</Link>
             <Link className="btn-secondary" href="/statuses">Statuses</Link>
+            <Link className="btn-secondary" href="/orders"><ClipboardList size={18} aria-hidden />Orders</Link>
           </> : null}
           {user ? (
             <div className="flex items-center gap-2 rounded-lg border-2 border-ink/10 bg-white px-3 py-2 text-sm font-black text-ink">
@@ -114,26 +115,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </main>
       {isSupabaseConfigured && !user ? null : (
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-ink/10 bg-paper/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden">
-          <div className="mx-auto grid max-w-md grid-cols-5 gap-1.5">
-            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/">
+          <div className="mx-auto grid max-w-xl grid-cols-6 gap-1">
+            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1 py-2 text-[10px] leading-none" href="/">
               <Home size={18} aria-hidden />
               Home
             </Link>
-            <Link className="btn-primary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/add">
+            <Link className="btn-primary min-h-12 flex-col gap-1 px-1 py-2 text-[10px] leading-none" href="/add">
               <Plus size={18} aria-hidden />
               Add
             </Link>
-            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/library">
+            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1 py-2 text-[10px] leading-none" href="/library">
               <LibraryBig size={18} aria-hidden />
               Library
             </Link>
-            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/categories">
+            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1 py-2 text-[10px] leading-none" href="/categories">
               <Settings size={18} aria-hidden />
               Categories
             </Link>
-            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/statuses">
+            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1 py-2 text-[10px] leading-none" href="/statuses">
               <ListChecks size={18} aria-hidden />
               Statuses
+            </Link>
+            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1 py-2 text-[10px] leading-none" href="/orders">
+              <ClipboardList size={18} aria-hidden />
+              Orders
             </Link>
           </div>
           {user ? (

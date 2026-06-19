@@ -6,10 +6,9 @@ Mobile-friendly Next.js app for searching, manually entering, cataloging, and pu
 
 ## Features
 
-- Add any book three ways: scan barcode/ISBN, scan or upload a cover photo, or type a title manually.
+- Add books by ISBN/title search or manual entry, with camera and photo uploads for covers.
 - ISBN-first lookup: Google Books is searched by ISBN when one is available.
-- Barcode photos and live barcode scanning use `@zxing/browser`; typing or pasting ISBN is always available as the fallback.
-- Cover fallback: when there is no ISBN, the app can use Google Cloud Vision OCR to detect cover title, author, and ISBN text, then search Google Books first, then Open Library, ISBNdb when configured, and Internet Archive.
+- Live barcode scanning and Vision OCR are temporarily hidden from the launch UI; manual entry and ISBN/title search remain available.
 - Manual entry is always available for missing barcodes, damaged barcodes, old ISBNs, and no-result books.
 - Batch Add flow for uploading multiple cover photos and reviewing each result before saving.
 - Custom inventory prefixes: `GB`, `BK`, `JRN`, or your own prefix.
@@ -20,6 +19,7 @@ Mobile-friendly Next.js app for searching, manually entering, cataloging, and pu
 - Dashboard totals for books, each workflow status, and profit.
 - Search, genre/category filter, status filter, cover grid, detail editor, public share page, and QR code.
 - Local browser-storage fallback when Supabase is not configured.
+- Public custom journal requests at `/custom-order`, with private quote and status management at `/orders`.
 
 ## Local Setup
 
@@ -138,6 +138,14 @@ For a brand-new project, run the full `supabase/schema.sql`. For the existing pr
 `supabase/migrations/repair-categories-statuses.sql` instead. The repair migration preserves existing books,
 adds missing category/status objects, seeds each existing user, restores RLS and Storage policies, and recreates
 the public library view/RPC. It is safe to run more than once.
+
+### Custom Order Migration
+
+For an existing Supabase project, run the full contents of
+`supabase/migrations/add-custom-orders.sql` in **Supabase > SQL Editor**. This creates the private
+`custom_orders` table, owner-only RLS policies, public submission RPC, and supporting indexes.
+It is safe to run more than once. Customers can submit without signing in, while only the authenticated
+inventory owner can read or update requests from `/orders`.
 
 ### Verify Supabase Save/Load
 

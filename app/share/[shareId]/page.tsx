@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, ArrowLeft } from "lucide-react";
+import { BookOpen, ArrowLeft, WandSparkles } from "lucide-react";
 import { useEffect, useState } from "react";
 import { displayCategory } from "@/lib/categories";
 import { displayStatus } from "@/lib/statuses";
@@ -60,6 +60,10 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
         </Link>
       </header>
 
+      <div className="mb-5">
+        <Link href={`/custom-order?shareId=${encodeURIComponent(params.shareId)}`} className="btn-primary w-full sm:w-fit"><WandSparkles size={20} aria-hidden />Request Custom Journal</Link>
+      </div>
+
       {loading ? (
         <div className="panel grid min-h-80 place-items-center p-8 text-center">
           <p className="font-bold text-ink/65">Loading The Paper Curio...</p>
@@ -108,6 +112,10 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
                   <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: status.color }}>
                     {status.name}
                   </span>
+                </div>
+                <div className="mt-1 grid gap-2">
+                  <Link className="btn-secondary w-full px-2 py-2 text-xs" href={`/share/${params.shareId}/books/${book.id}`}>View Book</Link>
+                  <Link className="btn-primary w-full px-2 py-2 text-xs" href={`/custom-order?shareId=${encodeURIComponent(params.shareId)}&bookId=${book.id}`}>Request Journal</Link>
                 </div>
               </div>
             </article>

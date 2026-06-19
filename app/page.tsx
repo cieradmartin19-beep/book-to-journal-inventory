@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Copy, ExternalLink, LibraryBig, QrCode, Settings, Workflow } from "lucide-react";
+import { Copy, ExternalLink, LibraryBig, QrCode, Settings, WandSparkles, Workflow } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { CustomDashboardStats } from "@/components/DashboardStats";
@@ -17,6 +17,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const shareId = shareUrl.includes("/share/") ? shareUrl.split("/share/")[1] : "";
 
   useEffect(() => {
     let active = true;
@@ -42,6 +43,7 @@ export default function HomePage() {
           <div>
             <h1 className="font-serif text-3xl font-black leading-tight sm:text-5xl">The Paper Curio</h1>
             <p className="mt-2 max-w-2xl font-semibold text-ink/65">Curated Books • Handmade Journals • Creative Collections</p>
+            <Link href={shareId ? `/custom-order?shareId=${encodeURIComponent(shareId)}` : "/custom-order"} className="btn-primary mt-4 w-full sm:w-fit"><WandSparkles size={20} aria-hidden />Request Custom Journal</Link>
           </div>
         </div>
       </section>
