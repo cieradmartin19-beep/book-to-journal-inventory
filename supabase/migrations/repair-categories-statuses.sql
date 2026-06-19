@@ -33,6 +33,53 @@ create table if not exists public.book_photos (
   created_at timestamptz not null default now()
 );
 
+-- CREATE TABLE IF NOT EXISTS does not upgrade an older table definition.
+alter table public.categories add column if not exists color text not null default '#7CC9A7';
+alter table public.categories add column if not exists created_at timestamptz not null default now();
+alter table public.statuses add column if not exists color text not null default '#E9E1D2';
+alter table public.statuses add column if not exists sort_order integer not null default 0;
+alter table public.statuses add column if not exists created_at timestamptz not null default now();
+alter table public.book_photos add column if not exists storage_path text;
+alter table public.book_photos add column if not exists sort_order integer not null default 0;
+alter table public.book_photos add column if not exists created_at timestamptz not null default now();
+
+with ranked as (
+  select id, first_value(id) over (partition by user_id, name order by created_at, id) as keep_id,
+    row_number() over (partition by user_id, name order by created_at, id) as duplicate_number
+  from public.categories
+)
+update public.books
+set category_id = ranked.keep_id
+from ranked
+where books.category_id = ranked.id and ranked.duplicate_number > 1;
+
+with ranked as (
+  select id, row_number() over (partition by user_id, name order by created_at, id) as duplicate_number
+  from public.categories
+)
+delete from public.categories using ranked
+where categories.id = ranked.id and ranked.duplicate_number > 1;
+
+with ranked as (
+  select id, first_value(id) over (partition by user_id, name order by created_at, id) as keep_id,
+    row_number() over (partition by user_id, name order by created_at, id) as duplicate_number
+  from public.statuses
+)
+update public.books
+set status_id = ranked.keep_id
+from ranked
+where books.status_id = ranked.id and ranked.duplicate_number > 1;
+
+with ranked as (
+  select id, row_number() over (partition by user_id, name order by created_at, id) as duplicate_number
+  from public.statuses
+)
+delete from public.statuses using ranked
+where statuses.id = ranked.id and ranked.duplicate_number > 1;
+
+create unique index if not exists categories_user_name_unique_idx on public.categories(user_id, name);
+create unique index if not exists statuses_user_name_unique_idx on public.statuses(user_id, name);
+
 alter table public.books drop constraint if exists books_category_id_fkey;
 alter table public.books
   add constraint books_category_id_fkey
