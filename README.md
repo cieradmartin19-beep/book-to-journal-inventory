@@ -1,6 +1,8 @@
-# The Paper Curio’s Library
+# The Paper Curio
 
-Mobile-friendly Next.js app for scanning, searching, manually entering, cataloging, and publicly sharing books or journal projects.
+**Curated Books • Handmade Journals • Creative Collections**
+
+Mobile-friendly Next.js app for searching, manually entering, cataloging, and publicly sharing books or journal projects.
 
 ## Features
 

@@ -40,13 +40,13 @@ export default function HomePage() {
         <p className="text-sm font-black uppercase tracking-wide text-marigold">Home</p>
         <div className="mt-1">
           <div>
-            <h1 className="font-serif text-3xl font-black leading-tight sm:text-5xl">The Paper Curio’s Library</h1>
-            <p className="mt-2 max-w-2xl font-semibold text-ink/65">Catalog books, organize journal projects, and share selected pieces.</p>
+            <h1 className="font-serif text-3xl font-black leading-tight sm:text-5xl">The Paper Curio</h1>
+            <p className="mt-2 max-w-2xl font-semibold text-ink/65">Curated Books • Handmade Journals • Creative Collections</p>
           </div>
         </div>
       </section>
 
-      {loading ? <div className="panel mt-4 p-5 font-bold text-ink/65">Loading your library...</div> : null}
+      {loading ? <div className="panel mt-4 p-5 font-bold text-ink/65">Loading The Paper Curio...</div> : null}
       {!loading && error ? (
         <div className="mt-4 rounded-lg border-2 border-red-200 bg-red-50 p-5">
           <h2 className="text-xl font-black text-red-900">Dashboard could not be loaded</h2>

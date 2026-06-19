@@ -62,8 +62,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <BookOpen size={26} aria-hidden />
           </span>
           <span className="min-w-0">
-            <span className="block truncate font-serif text-xl font-black leading-6 sm:text-2xl">The Paper Curio’s</span>
-            <span className="text-sm font-bold text-ink/60">Library</span>
+            <span className="block truncate font-serif text-xl font-black leading-6 sm:text-2xl">The Paper Curio</span>
+            <span className="block truncate text-xs font-bold text-ink/60 sm:text-sm">Curated Books • Handmade Journals • Creative Collections</span>
           </span>
         </Link>
         <div className="hidden items-center gap-2 lg:flex">
@@ -91,7 +91,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1">
         {authLoading ? (
           <div className="panel grid min-h-96 place-items-center p-8 text-center">
-            <p className="font-bold text-ink/65">Checking your account...</p>
+            <div>
+              <p className="font-serif text-2xl font-black">The Paper Curio</p>
+              <p className="mt-1 font-bold text-ink/65">Checking your account...</p>
+            </div>
           </div>
         ) : !isSupabaseConfigured || user ? (
           children
@@ -99,7 +102,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <div className="panel grid min-h-96 place-items-center p-8 text-center">
             <div className="max-w-md">
               <UserCircle className="mx-auto mb-4 text-marigold" size={48} aria-hidden />
-              <h1 className="font-serif text-3xl font-black">Sign in to manage your inventory.</h1>
+              <h1 className="font-serif text-3xl font-black">Welcome to The Paper Curio</h1>
+              <p className="mt-2 font-black text-marigold">Curated Books • Handmade Journals • Creative Collections</p>
               <p className="mt-2 font-semibold text-ink/65">Jess can sign in to see only her saved books, photos, categories, and statuses.</p>
               <Link className="btn-primary mt-5" href="/login">
                 Sign in

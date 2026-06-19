@@ -50,8 +50,8 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
             <BookOpen size={25} aria-hidden />
           </span>
           <div className="min-w-0">
-            <h1 className="font-serif text-2xl font-black leading-tight sm:text-3xl">The Paper Curio’s Library</h1>
-            <p className="font-semibold text-ink/65">A shareable peek at selected books and journals.</p>
+            <h1 className="font-serif text-2xl font-black leading-tight sm:text-3xl">The Paper Curio</h1>
+            <p className="font-semibold text-ink/65">Curated Books • Handmade Journals • Creative Collections</p>
           </div>
         </div>
         <Link href="/" className="btn-secondary hidden sm:inline-flex">
@@ -62,7 +62,7 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
 
       {loading ? (
         <div className="panel grid min-h-80 place-items-center p-8 text-center">
-          <p className="font-bold text-ink/65">Loading public library...</p>
+          <p className="font-bold text-ink/65">Loading The Paper Curio...</p>
         </div>
       ) : loadFailed ? (
         <div className="rounded-lg border-2 border-red-200 bg-red-50 p-6 text-center">
