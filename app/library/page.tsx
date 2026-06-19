@@ -63,12 +63,13 @@ export default function LibraryPage() {
 
   return (
     <AppShell>
-      <section className="py-4">
+      <section className="flex flex-col gap-4 py-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="page-kicker">Library</p>
           <h1 className="font-serif text-3xl font-black sm:text-5xl">All books</h1>
           <p className="page-subtitle mt-2">{books.length} saved book{books.length === 1 ? "" : "s"}</p>
         </div>
+        <Link href="/add" className="btn-primary w-full sm:w-fit"><Plus size={20} aria-hidden />Add Book</Link>
       </section>
 
       {savedMessage ? <p className="mb-4 rounded-lg bg-mint/30 p-3 font-black">{savedMessage}</p> : null}

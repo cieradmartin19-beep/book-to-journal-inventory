@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Copy, ExternalLink, LibraryBig, QrCode, Settings, WandSparkles, Workflow } from "lucide-react";
+import { Copy, ExternalLink, LibraryBig, Plus, QrCode, Settings, WandSparkles, Workflow } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { CustomDashboardStats } from "@/components/DashboardStats";
@@ -43,7 +43,10 @@ export default function HomePage() {
           <div>
             <h1 className="font-serif text-3xl font-black leading-tight sm:text-5xl">The Paper Curio</h1>
             <p className="page-subtitle mt-2 max-w-2xl">Curated Books • Handmade Journals • Creative Collections</p>
-            <Link href={shareId ? `/custom-order?shareId=${encodeURIComponent(shareId)}` : "/custom-order"} className="btn-primary mt-4 w-full sm:w-fit"><WandSparkles size={20} aria-hidden />Request Custom Journal</Link>
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+              <Link href="/add" className="btn-primary w-full sm:w-fit"><Plus size={20} aria-hidden />Add Book</Link>
+              <Link href={shareId ? `/custom-order?shareId=${encodeURIComponent(shareId)}` : "/custom-order"} className="btn-secondary w-full sm:w-fit"><WandSparkles size={20} aria-hidden />Request Custom Journal</Link>
+            </div>
           </div>
         </div>
       </section>
