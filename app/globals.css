@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  color: #2b2118;
-  background: #fff9ec;
+  color: #f5f0e6;
+  background: #1b1a17;
 }
 
 * {
@@ -14,10 +14,29 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at top left, rgba(247, 201, 72, 0.22), transparent 34rem),
-    linear-gradient(180deg, #fff9ec 0%, #fff3d6 100%);
-  color: #2b2118;
+  background: #1b1a17;
+  color: #f5f0e6;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  border: 1px solid rgba(176, 141, 87, 0.08);
+  box-shadow: inset 0 0 140px rgba(47, 58, 47, 0.45);
+}
+
+::selection {
+  background: #b08d57;
+  color: #1b1a17;
+}
+
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
 }
 
 img,
@@ -36,22 +55,39 @@ textarea {
 
 @layer components {
   .field {
-    @apply w-full rounded-lg border-2 border-ink/10 bg-white px-4 py-3 text-base outline-none transition focus:border-marigold focus:ring-4 focus:ring-honey/30;
+    @apply w-full rounded-md border-2 border-brass/45 bg-[#FBF7EE] px-4 py-3 text-base text-ink outline-none transition placeholder:text-leather/50 focus:border-gold focus:ring-4 focus:ring-gold/20;
   }
 
   .label {
-    @apply text-sm font-bold text-ink/80;
+    @apply text-xs font-black uppercase tracking-wide text-leather/90;
   }
 
   .btn-primary {
-    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-ink px-4 py-3 text-center text-base font-bold leading-tight text-white shadow-soft transition hover:-translate-y-0.5 hover:bg-ink/90 sm:px-5;
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold bg-gold px-4 py-3 text-center text-sm font-black uppercase tracking-wide leading-tight text-ink shadow-soft transition hover:-translate-y-0.5 hover:bg-honey sm:px-5;
   }
 
   .btn-secondary {
-    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border-2 border-ink/10 bg-white px-4 py-3 text-center text-base font-bold leading-tight text-ink shadow-sm transition hover:border-marigold sm:px-5;
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-md border-2 border-gold/45 bg-[#FBF7EE] px-4 py-3 text-center text-sm font-black uppercase tracking-wide leading-tight text-ink shadow-sm transition hover:border-gold hover:bg-paper sm:px-5;
   }
 
   .panel {
-    @apply rounded-lg border-2 border-ink/10 bg-white/90 shadow-soft;
+    @apply rounded-lg border-2 border-gold/45 bg-paper text-ink shadow-soft;
+    box-shadow: 0 16px 36px rgba(10, 9, 7, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.45);
+  }
+
+  .catalog-card {
+    @apply panel overflow-hidden transition hover:-translate-y-1 hover:border-gold;
+  }
+
+  .archive-label {
+    @apply inline-flex max-w-full items-center truncate rounded-sm border border-ink/25 px-2 py-1 text-[11px] font-black uppercase tracking-wide text-ink shadow-sm;
+  }
+
+  .page-kicker {
+    @apply text-xs font-black uppercase tracking-[0.2em] text-gold;
+  }
+
+  .page-subtitle {
+    @apply font-semibold text-paper/70;
   }
 }

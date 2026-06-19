@@ -65,9 +65,9 @@ export default function LibraryPage() {
     <AppShell>
       <section className="py-4">
         <div>
-          <p className="text-sm font-black uppercase tracking-wide text-marigold">Library</p>
+          <p className="page-kicker">Library</p>
           <h1 className="font-serif text-3xl font-black sm:text-5xl">All books</h1>
-          <p className="mt-2 font-semibold text-ink/65">{books.length} saved book{books.length === 1 ? "" : "s"}</p>
+          <p className="page-subtitle mt-2">{books.length} saved book{books.length === 1 ? "" : "s"}</p>
         </div>
       </section>
 

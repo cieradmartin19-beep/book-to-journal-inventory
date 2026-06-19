@@ -137,7 +137,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
             <div className="grid gap-1 text-sm font-bold text-ink/65">
               <p>
                 <span
-                  className="inline-flex max-w-full rounded-md px-2 py-1 text-xs font-black text-ink"
+                  className="archive-label"
                   style={{ backgroundColor: customStatus.color }}
                 >
                   {customStatus.name}
@@ -145,7 +145,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
               </p>
               <p>
                 <span
-                  className="inline-flex max-w-full rounded-md px-2 py-1 text-xs font-black text-ink"
+                  className="archive-label"
                   style={{ backgroundColor: category.color }}
                 >
                   {category.name}

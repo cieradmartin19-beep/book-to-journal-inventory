@@ -10,7 +10,7 @@ import type { CustomStatus } from "@/lib/types";
 export default function ManageStatusesPage() {
   const [statuses, setStatuses] = useState<CustomStatus[]>([]);
   const [name, setName] = useState("");
-  const [color, setColor] = useState("#E9E1D2");
+  const [color, setColor] = useState("#B08D57");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 

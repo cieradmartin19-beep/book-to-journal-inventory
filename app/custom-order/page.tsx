@@ -133,10 +133,10 @@ export default function CustomOrderPage() {
   return (
     <main className="mx-auto min-h-screen max-w-4xl px-3 py-4 sm:px-6 sm:py-8">
       <header className="mb-6 flex items-center gap-3">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-honey shadow-soft"><BookOpen size={26} aria-hidden /></span>
+        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-md border border-gold bg-gold text-ink shadow-soft"><BookOpen size={26} aria-hidden /></span>
         <div>
           <p className="font-serif text-2xl font-black sm:text-3xl">The Paper Curio</p>
-          <p className="text-sm font-bold text-ink/60">Curated Books • Handmade Journals • Creative Collections</p>
+          <p className="text-sm font-bold text-paper/65">Curated Books • Handmade Journals • Creative Collections</p>
         </div>
       </header>
 

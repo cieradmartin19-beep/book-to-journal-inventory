@@ -46,12 +46,12 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
     <main className="mx-auto min-h-screen max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
       <header className="mb-6 flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-honey shadow-soft sm:h-12 sm:w-12">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-gold bg-gold text-ink shadow-soft sm:h-12 sm:w-12">
             <BookOpen size={25} aria-hidden />
           </span>
           <div className="min-w-0">
             <h1 className="font-serif text-2xl font-black leading-tight sm:text-3xl">The Paper Curio</h1>
-            <p className="font-semibold text-ink/65">Curated Books • Handmade Journals • Creative Collections</p>
+            <p className="font-semibold text-paper/65">Curated Books • Handmade Journals • Creative Collections</p>
           </div>
         </div>
         <Link href="/" className="btn-secondary hidden sm:inline-flex">
@@ -91,7 +91,7 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
               const status = displayStatus(book);
 
               return (
-                <article className="panel min-w-0 overflow-hidden" key={book.id}>
+                <article className="catalog-card min-w-0" key={book.id}>
               <div className="relative aspect-[4/5] bg-honey/20">
                 <Image
                   src={book.cover_url || "/placeholder-cover.svg"}
@@ -106,10 +106,10 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
                 <h2 className="line-clamp-2 min-h-10 text-sm font-black leading-5">{book.title}</h2>
                 <p className="truncate text-xs font-semibold text-ink/60">{book.author || "Unknown author"}</p>
                 <div className="flex flex-wrap gap-1">
-                  <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: category.color }}>
+                  <span className="archive-label" style={{ backgroundColor: category.color }}>
                     {category.name}
                   </span>
-                  <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: status.color }}>
+                  <span className="archive-label" style={{ backgroundColor: status.color }}>
                     {status.name}
                   </span>
                 </div>

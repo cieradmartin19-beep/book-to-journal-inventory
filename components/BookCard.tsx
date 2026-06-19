@@ -15,7 +15,7 @@ export function BookCard({ book }: { book: Book }) {
   return (
     <Link
       href={`/books/${book.id}`}
-      className="panel block min-w-0 overflow-hidden transition hover:-translate-y-1"
+      className="catalog-card block min-w-0"
     >
       <div className="relative aspect-[4/5] bg-honey/25">
         <Image
@@ -35,10 +35,10 @@ export function BookCard({ book }: { book: Book }) {
           <p className="truncate text-xs font-semibold text-ink/60">{book.author || "Unknown author"}</p>
         </div>
         <div className="flex flex-wrap gap-1">
-          <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: category.color }}>
+          <span className="archive-label" style={{ backgroundColor: category.color }}>
             {category.name}
           </span>
-          <span className="max-w-full truncate rounded-md px-2 py-1 text-xs font-bold" style={{ backgroundColor: status.color }}>
+          <span className="archive-label" style={{ backgroundColor: status.color }}>
             {status.name}
           </span>
         </div>

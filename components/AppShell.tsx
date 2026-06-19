@@ -56,14 +56,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-3 sm:px-6 sm:pt-4 lg:px-8">
-      <header className="flex items-center justify-between gap-3 py-3">
+      <header className="mb-3 flex items-center justify-between gap-3 border-b border-gold/30 py-3 sm:mb-5">
         <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-honey text-ink shadow-soft sm:h-12 sm:w-12">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-gold bg-gold text-ink shadow-soft sm:h-12 sm:w-12">
             <BookOpen size={26} aria-hidden />
           </span>
           <span className="min-w-0">
-            <span className="block truncate font-serif text-xl font-black leading-6 sm:text-2xl">The Paper Curio</span>
-            <span className="block truncate text-xs font-bold text-ink/60 sm:text-sm">Curated Books • Handmade Journals • Creative Collections</span>
+            <span className="block truncate font-serif text-xl font-black leading-6 text-paper sm:text-2xl">The Paper Curio</span>
+            <span className="block truncate text-xs font-bold text-paper/60 sm:text-sm">Curated Books • Handmade Journals • Creative Collections</span>
           </span>
         </Link>
         <div className="hidden items-center gap-2 lg:flex">
@@ -114,7 +114,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
       </main>
       {isSupabaseConfigured && !user ? null : (
-        <nav className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-ink/10 bg-paper/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden">
+        <nav className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-gold/45 bg-ink/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden">
           <div className="mx-auto grid max-w-xl grid-cols-6 gap-1">
             <Link className="btn-secondary min-h-12 flex-col gap-1 px-1 py-2 text-[10px] leading-none" href="/">
               <Home size={18} aria-hidden />
@@ -142,7 +142,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
           {user ? (
-            <div className="mx-auto mt-2 flex max-w-md items-center justify-between gap-2 text-xs font-black text-ink/65">
+            <div className="mx-auto mt-2 flex max-w-md items-center justify-between gap-2 text-xs font-black text-paper/70">
               <span className="min-w-0 truncate">Signed in as {displayName || "Jess"}</span>
               <button className="underline" onClick={handleSignOut}>Sign out</button>
             </div>

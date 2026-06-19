@@ -38,11 +38,11 @@ export default function HomePage() {
   return (
     <AppShell>
       <section className="py-4">
-        <p className="text-sm font-black uppercase tracking-wide text-marigold">Home</p>
+        <p className="page-kicker">Home</p>
         <div className="mt-1">
           <div>
             <h1 className="font-serif text-3xl font-black leading-tight sm:text-5xl">The Paper Curio</h1>
-            <p className="mt-2 max-w-2xl font-semibold text-ink/65">Curated Books • Handmade Journals • Creative Collections</p>
+            <p className="page-subtitle mt-2 max-w-2xl">Curated Books • Handmade Journals • Creative Collections</p>
             <Link href={shareId ? `/custom-order?shareId=${encodeURIComponent(shareId)}` : "/custom-order"} className="btn-primary mt-4 w-full sm:w-fit"><WandSparkles size={20} aria-hidden />Request Custom Journal</Link>
           </div>
         </div>
@@ -59,15 +59,15 @@ export default function HomePage() {
       {!loading && !error ? <CustomDashboardStats books={books} statuses={statuses} /> : null}
 
       <section className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Link href="/library" className="panel p-5 transition hover:-translate-y-1">
+        <Link href="/library" className="catalog-card p-5">
           <LibraryBig size={28} aria-hidden /><h2 className="mt-3 text-xl font-black">Library</h2>
           <p className="mt-1 text-sm font-semibold text-ink/65">Browse, search, and filter all saved books.</p>
         </Link>
-        <Link href="/categories" className="panel p-5 transition hover:-translate-y-1">
+        <Link href="/categories" className="catalog-card p-5">
           <Settings size={28} aria-hidden /><h2 className="mt-3 text-xl font-black">Categories</h2>
           <p className="mt-1 text-sm font-semibold text-ink/65">Create the groupings that fit your collection.</p>
         </Link>
-        <Link href="/statuses" className="panel p-5 transition hover:-translate-y-1">
+        <Link href="/statuses" className="catalog-card p-5">
           <Workflow size={28} aria-hidden /><h2 className="mt-3 text-xl font-black">Statuses</h2>
           <p className="mt-1 text-sm font-semibold text-ink/65">Shape and reorder your own workflow.</p>
         </Link>

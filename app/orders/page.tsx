@@ -47,9 +47,9 @@ export default function OrdersPage() {
   return (
     <AppShell>
       <section className="py-4">
-        <p className="text-sm font-black uppercase tracking-wide text-marigold">Private</p>
+        <p className="page-kicker">Private</p>
         <h1 className="font-serif text-3xl font-black sm:text-5xl">Custom Orders</h1>
-        <p className="mt-2 font-semibold text-ink/65">Review requests, prepare quotes, and track handmade journal orders.</p>
+        <p className="page-subtitle mt-2">Review requests, prepare quotes, and track handmade journal orders.</p>
       </section>
 
       {message ? <p className="mb-4 rounded-lg bg-mint/25 p-3 font-bold">{message}</p> : null}
@@ -84,7 +84,7 @@ export default function OrdersPage() {
 
               <div className="mt-4">
                 <p className="label">Customization options</p>
-                <div className="mt-2 flex flex-wrap gap-2">{order.customization_options.length ? order.customization_options.map((option) => <span className="rounded-md bg-honey/35 px-2 py-1 text-xs font-black" key={option}>{option}</span>) : <span className="text-sm font-semibold text-ink/55">No options selected</span>}</div>
+                <div className="mt-2 flex flex-wrap gap-2">{order.customization_options.length ? order.customization_options.map((option) => <span className="archive-label bg-honey/35" key={option}>{option}</span>) : <span className="text-sm font-semibold text-ink/55">No options selected</span>}</div>
               </div>
               <div className="mt-4 rounded-lg bg-white p-3"><p className="label">Customer notes</p><p className="mt-2 whitespace-pre-wrap text-sm font-semibold text-ink/75">{order.customer_notes || "No customer notes."}</p></div>
             </div>

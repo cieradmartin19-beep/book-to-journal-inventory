@@ -10,7 +10,7 @@ import type { Category } from "@/lib/types";
 export default function ManageCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [name, setName] = useState("");
-  const [color, setColor] = useState("#7CC9A7");
+  const [color, setColor] = useState("#6B6A4D");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 

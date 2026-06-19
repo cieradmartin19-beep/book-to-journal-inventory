@@ -22,7 +22,7 @@ export function DashboardStats({ stats }: { stats: Stats }) {
 
         return (
           <div className="panel min-w-0 p-3 sm:p-4" key={item.key}>
-            <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-honey/45 sm:h-10 sm:w-10">
+            <div className="mb-3 grid h-9 w-9 place-items-center rounded-md border border-gold/50 bg-honey/45 sm:h-10 sm:w-10">
               <Icon size={20} aria-hidden />
             </div>
             <p className="text-xs font-black uppercase text-ink/55 sm:tracking-wide">{item.label}</p>
@@ -50,7 +50,7 @@ export function CustomDashboardStats({ books, statuses }: { books: Book[]; statu
   return (
     <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-8">
       <div className="panel min-w-0 p-3 sm:p-4">
-        <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-honey/45 sm:h-10 sm:w-10">
+        <div className="mb-3 grid h-9 w-9 place-items-center rounded-md border border-gold/50 bg-honey/45 sm:h-10 sm:w-10">
           <LibraryBig size={20} aria-hidden />
         </div>
         <p className="text-xs font-black uppercase text-ink/55 sm:tracking-wide">Total books</p>
@@ -62,7 +62,7 @@ export function CustomDashboardStats({ books, statuses }: { books: Book[]; statu
 
         return (
           <div className="panel min-w-0 p-3 sm:p-4" key={status.id}>
-            <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg sm:h-10 sm:w-10" style={{ backgroundColor: status.color }}>
+            <div className="mb-3 grid h-9 w-9 place-items-center rounded-md border border-ink/25 sm:h-10 sm:w-10" style={{ backgroundColor: status.color }}>
               <Icon size={20} aria-hidden />
             </div>
             <p className="truncate text-xs font-black uppercase text-ink/55 sm:tracking-wide">{status.name}</p>
@@ -71,7 +71,7 @@ export function CustomDashboardStats({ books, statuses }: { books: Book[]; statu
         );
       })}
       <div className="panel min-w-0 p-3 sm:p-4">
-        <div className="mb-3 grid h-9 w-9 place-items-center rounded-lg bg-honey/45 sm:h-10 sm:w-10">
+        <div className="mb-3 grid h-9 w-9 place-items-center rounded-md border border-gold/50 bg-honey/45 sm:h-10 sm:w-10">
           <DollarSign size={20} aria-hidden />
         </div>
         <p className="text-xs font-black uppercase text-ink/55 sm:tracking-wide">Profit</p>
