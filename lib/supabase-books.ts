@@ -36,6 +36,19 @@ type PublicSupabaseBookRow = Pick<
   photo_urls?: string[];
 };
 
+function isCustomFieldSchemaError(error: { code?: string; message?: string } | null) {
+  return Boolean(error && (
+    error.code === "42703"
+    || error.code === "PGRST204"
+    || /category_id|status_id|categories|statuses/i.test(error.message ?? "")
+  ));
+}
+
+function readableSupabaseError(action: string, error: { message?: string; details?: string; hint?: string }) {
+  const detail = [error.message, error.details, error.hint].filter(Boolean).join(" ");
+  return new Error(`${action} failed. ${detail || "Supabase did not provide an error message."}`);
+}
+
 function withPhotoUrls(book: SupabaseBookRow): Book {
   const photoUrls = [...(book.book_photos ?? [])]
     .sort((a, b) => a.sort_order - b.sort_order)
@@ -188,9 +201,7 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
 
-  const { data, error } = await supabase
-    .from("books")
-    .insert({
+  const payload = {
       user_id: userId,
       inventory_prefix: inventoryPrefix,
       title: book.title,
@@ -210,13 +221,24 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
       sold_price: book.sold_price,
       notes: book.notes,
       show_public: book.show_public
-    })
-    .select()
-    .single();
+  };
+  let result = await supabase.from("books").insert(payload).select().single();
 
-  if (error) throw error;
+  if (isCustomFieldSchemaError(result.error)) {
+    const { category_id: _categoryId, status_id: _statusId, ...legacyPayload } = payload;
+    result = await supabase.from("books").insert(legacyPayload).select().single();
+  }
+
+  if (result.error) throw readableSupabaseError("Book save", result.error);
+  const data = result.data;
   const bookId = data.id as string;
-  const photoUrls = await replaceSupabaseBookPhotos(bookId, userId, book.photo_urls ?? [], photoFiles);
+  let photoUrls: string[];
+  try {
+    photoUrls = await replaceSupabaseBookPhotos(bookId, userId, book.photo_urls ?? [], photoFiles);
+  } catch (photoError) {
+    await supabase.from("books").delete().eq("id", bookId).eq("user_id", userId);
+    throw readableSupabaseError("Book photo upload", photoError as { message?: string });
+  }
   const coverUrl = data.cover_url || photoUrls[0] || "";
 
   if (coverUrl !== data.cover_url) {
@@ -228,7 +250,7 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
       .select("*, categories(name, color), statuses(name, color, sort_order), book_photos(url, sort_order)")
       .single();
 
-    if (updateError) throw updateError;
+    if (updateError) throw readableSupabaseError("Cover update", updateError);
     return withPhotoUrls(updated as SupabaseBookRow);
   }
 
@@ -242,9 +264,7 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
   const nextPhotoUrls = await replaceSupabaseBookPhotos(id, userId, updates.photo_urls ?? [], photoFiles);
   const nextCoverUrl = updates.cover_url || nextPhotoUrls[0] || "";
 
-  const { data, error } = await supabase
-    .from("books")
-    .update({
+  const payload = {
       title: updates.title,
       author: updates.author,
       publisher: updates.publisher,
@@ -263,14 +283,16 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
       notes: updates.notes,
       show_public: updates.show_public,
       updated_at: new Date().toISOString()
-    })
-    .eq("id", id)
-    .eq("user_id", userId)
-    .select()
-    .single();
+  };
+  let result = await supabase.from("books").update(payload).eq("id", id).eq("user_id", userId).select().single();
 
-  if (error) throw error;
-  return fetchSupabaseBook((data as Book).id, userId);
+  if (isCustomFieldSchemaError(result.error)) {
+    const { category_id: _categoryId, status_id: _statusId, ...legacyPayload } = payload;
+    result = await supabase.from("books").update(legacyPayload).eq("id", id).eq("user_id", userId).select().single();
+  }
+
+  if (result.error) throw readableSupabaseError("Book update", result.error);
+  return fetchSupabaseBook((result.data as Book).id, userId);
 }
 
 export async function fetchPublicSupabaseBooks(shareId: string) {

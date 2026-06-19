@@ -3,6 +3,7 @@
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
@@ -25,7 +26,6 @@ import { createStatus, fetchStatuses } from "@/lib/statuses";
 import {
   blankDraft,
   cleanIsbn,
-  detectIsbnFromImage,
   fileToDataUrl,
   lookupGoogleBooks,
   scanCoverForBook,
@@ -47,11 +47,10 @@ const LiveBarcodeScanner = dynamic(() => import("@/components/LiveBarcodeScanner
 });
 
 export default function AddBookPage() {
+  const router = useRouter();
   const coverInput = useRef<HTMLInputElement>(null);
-  const barcodeInput = useRef<HTMLInputElement>(null);
   const coverVideoRef = useRef<HTMLVideoElement>(null);
   const coverStreamRef = useRef<MediaStream | null>(null);
-  const toastTimeoutRef = useRef<number | null>(null);
   const pendingPhotoUrlsRef = useRef<string[]>([]);
   const [prefix, setPrefix] = useState("BK");
   const [draft, setDraft] = useState<BookDraft>(blankDraft());
@@ -65,7 +64,6 @@ export default function AddBookPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
-  const [toast, setToast] = useState("");
   const [pendingPhotoFiles, setPendingPhotoFiles] = useState<File[]>([]);
   const [pendingPhotoUrls, setPendingPhotoUrls] = useState<string[]>([]);
   const [lookupError, setLookupError] = useState("");
@@ -86,11 +84,24 @@ export default function AddBookPage() {
     debug?: OcrDebugInfo;
   } | null>(null);
   const [coverScanDiagnostics, setCoverScanDiagnostics] = useState<CoverScanDiagnostics | null>(null);
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     void fetchBooks().then((items) => setBooks(items ?? [])).catch(() => setBooks([]));
     void fetchCategories().then(setCategories).catch(() => setCategories([]));
-    void fetchStatuses().then(setCustomStatuses).catch(() => setCustomStatuses([]));
+    void fetchStatuses().then((items) => {
+      setCustomStatuses(items);
+      const inventory = items.find((status) => status.name === "Inventory") ?? items[0];
+      if (inventory) {
+        setDraft((current) => current.status_id ? current : {
+          ...current,
+          status_id: inventory.id,
+          status: inventory.name,
+          status_color: inventory.color
+        });
+      }
+    }).catch(() => setCustomStatuses([]));
   }, []);
 
   useEffect(() => {
@@ -100,9 +111,6 @@ export default function AddBookPage() {
   useEffect(() => {
     return () => {
       stopCoverCamera(false);
-      if (toastTimeoutRef.current) {
-        window.clearTimeout(toastTimeoutRef.current);
-      }
       pendingPhotoUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
@@ -277,29 +285,6 @@ export default function AddBookPage() {
     });
   }
 
-  function clearPendingPhotos() {
-    pendingPhotoUrls.forEach((url) => URL.revokeObjectURL(url));
-    setPendingPhotoFiles([]);
-    setPendingPhotoUrls([]);
-  }
-
-  async function handleBarcodeFile(file: File) {
-    const image = await fileToDataUrl(file);
-    setDraft(blankDraft(image));
-    setStep("looking");
-    setStatusText("Reading the barcode or ISBN...");
-
-    try {
-      const isbn = await detectIsbnFromImage(image);
-      await lookupByIsbn(isbn, image);
-    } catch {
-      setDraft(blankDraft(image));
-      setLookupError("Book lookup failed. You can still enter it manually.");
-      setStatusText("That barcode could not be read. Type the ISBN or enter the book manually.");
-      setStep("review");
-    }
-  }
-
   async function processCoverImage(image: string, capturedCoverFile?: File) {
     setCoverScanPreview(image);
     setDraft(blankDraft(image));
@@ -329,8 +314,12 @@ export default function AddBookPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "We couldn't identify this book automatically.";
       console.error("[cover-scan-client-debug] cover scan error", message);
-      setLookupError("We couldn't identify this book automatically. You can still enter it manually.");
-      setStatusText("We couldn't identify this book automatically. You can still enter it manually.");
+      const unavailable = /API_KEY_SERVICE_BLOCKED|PERMISSION_DENIED|permission|blocked/i.test(message);
+      const friendly = unavailable
+        ? "Cover recognition is not available right now. You can still search by ISBN, search by title, upload a photo, or enter the book manually."
+        : "We couldn't identify this book automatically. You can still enter it manually.";
+      setLookupError(friendly);
+      setStatusText(friendly);
       setCoverScanDiagnostics({
         ocrEnabled: false,
         googleBooksApiEnabled: false,
@@ -431,76 +420,61 @@ export default function AddBookPage() {
   }
 
   async function saveBook() {
+    if (saving) return;
+    setSaving(true);
+    setSaveError("");
     setStatusText("Saving your book...");
     try {
+      const persistableCoverUrl = /^(data:|blob:)/i.test(draft.cover_url) ? "" : draft.cover_url;
       const book = await createBook(
         {
           ...draft,
+          cover_url: persistableCoverUrl,
           title: draft.title || "Untitled book",
           category: draft.category || "Uncategorized"
         },
         prefix,
         pendingPhotoFiles
       );
-      setBooks((current) => [book, ...current]);
-      setDraft(blankDraft());
-      setSuggestion(null);
-      setSuggestions([]);
-      setLookupError("");
-      setCoverScanPreview("");
-      setOcrDebug(null);
-      setCoverScanDiagnostics(null);
-      setIsbnEntry("");
-      setManualTitle("");
-      setManualAuthor("");
-      clearPendingPhotos();
-      setStep("start");
-      setStatusText(`${book.inventory_id} saved. Ready for the next scan.`);
-      setToast(`${book.inventory_id} saved`);
-
-      if (toastTimeoutRef.current) {
-        window.clearTimeout(toastTimeoutRef.current);
-      }
-
-      toastTimeoutRef.current = window.setTimeout(() => {
-        setToast("");
-      }, 3500);
-
+      setStatusText(`${book.inventory_id} saved.`);
+      router.push("/library?saved=true");
     } catch (error) {
-      setStatusText(error instanceof Error ? error.message : "Save failed. Please try again.");
+      const message = error instanceof Error ? error.message : "Save failed. Please try again.";
+      setSaveError(message);
+      setStatusText("This book was not saved. Please review the message below and try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
   async function createCategoryFromForm() {
     const name = window.prompt("New category name");
     if (!name?.trim()) return;
-    const category = await createCategory(name.trim());
-    setCategories((current) => [...current, category].sort((a, b) => a.name.localeCompare(b.name)));
-    setDraft((current) => ({
-      ...current,
-      category_id: category.id,
-      category: category.name,
-      category_color: category.color
-    }));
+    try {
+      const category = await createCategory(name.trim());
+      setCategories((current) => [...current, category].sort((a, b) => a.name.localeCompare(b.name)));
+      setDraft((current) => ({ ...current, category_id: category.id, category: category.name, category_color: category.color }));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Category could not be created.");
+    }
   }
 
   async function createStatusFromForm() {
     const name = window.prompt("New status name");
     if (!name?.trim()) return;
-    const status = await createStatus(name.trim(), "#E9E1D2", customStatuses.length);
-    setCustomStatuses((current) => [...current, status].sort((a, b) => a.sort_order - b.sort_order));
-    setDraft((current) => ({
-      ...current,
-      status_id: status.id,
-      status: status.name,
-      status_color: status.color
-    }));
+    try {
+      const status = await createStatus(name.trim(), "#E9E1D2", customStatuses.length);
+      setCustomStatuses((current) => [...current, status].sort((a, b) => a.sort_order - b.sort_order));
+      setDraft((current) => ({ ...current, status_id: status.id, status: status.name, status_color: status.color }));
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Status could not be created.");
+    }
   }
 
   return (
     <AppShell>
       <div className="mb-5 grid grid-cols-2 gap-3 sm:flex sm:items-center sm:justify-between">
-        <Link href="/" className="btn-secondary w-full sm:w-auto">
+        <Link href="/library" className="btn-secondary w-full sm:w-auto">
           <ArrowLeft size={20} aria-hidden />
           Library
         </Link>
@@ -523,17 +497,6 @@ export default function AddBookPage() {
           <InventoryPrefixSettings value={prefix} onChange={setPrefix} />
 
           <div className="panel grid gap-4 p-4 sm:p-5">
-            <input
-              ref={barcodeInput}
-              className="hidden"
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) void handleBarcodeFile(file);
-              }}
-            />
             <input
               ref={coverInput}
               className="hidden"
@@ -571,10 +534,6 @@ export default function AddBookPage() {
                   {isbnLookupLoading ? "Searching..." : "Search ISBN"}
                 </button>
               </div>
-              <button className="btn-secondary mt-2 w-full" onClick={() => barcodeInput.current?.click()}>
-                <Upload size={20} aria-hidden />
-                Upload Barcode Photo
-              </button>
             </div>
 
             <div className="rounded-lg bg-mint/20 p-3 sm:p-4">
@@ -733,7 +692,7 @@ export default function AddBookPage() {
                   )}
                 </div>
               </div>
-              {coverScanDiagnostics ? (
+              {debugMode && coverScanDiagnostics ? (
                 <div className="grid gap-3 rounded-lg border-2 border-ink/10 bg-white p-3 sm:p-4">
                   <div>
                     <p className="text-sm font-black uppercase tracking-wide text-marigold">Cover scan diagnostics</p>
@@ -884,21 +843,16 @@ export default function AddBookPage() {
                 onPhotosSelected={addPendingPhotos}
                 onRemovePendingPhoto={removePendingPhoto}
               />
-              <button className="btn-primary w-full text-lg" onClick={saveBook}>
-                <Save size={22} aria-hidden />
-                Save & Scan Next
+              {saveError ? <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{saveError}</p> : null}
+              <button className="btn-primary w-full text-lg" disabled={saving} onClick={saveBook}>
+                {saving ? <Loader2 className="animate-spin" size={22} aria-hidden /> : <Save size={22} aria-hidden />}
+                {saving ? "Saving..." : "Save Book"}
               </button>
             </div>
           )}
         </div>
       </section>
 
-      {toast ? (
-        <div className="fixed inset-x-3 bottom-24 z-40 mx-auto flex max-w-sm items-center gap-3 rounded-lg border-2 border-ink/10 bg-white px-4 py-3 font-black text-ink shadow-soft sm:bottom-6 sm:right-6 sm:left-auto">
-          <Check className="shrink-0 rounded-full bg-mint/30 p-1" size={28} aria-hidden />
-          <span className="min-w-0 truncate">{toast}. Ready for next scan.</span>
-        </div>
-      ) : null}
     </AppShell>
   );
 }

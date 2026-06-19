@@ -17,6 +17,9 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
   const [book, setBook] = useState<Book | null>(null);
   const [draft, setDraft] = useState<BookDraft | null>(null);
   const [saved, setSaved] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
   const [pendingPhotoFiles, setPendingPhotoFiles] = useState<File[]>([]);
@@ -30,10 +33,11 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
         const { id, inventory_id, inventory_prefix, inventory_number, profit, ...editable } = found;
         setDraft(editable);
       }
-    }).catch(() => {
+    }).catch((loadError) => {
       setBook(null);
       setDraft(null);
-    });
+      setSaveError(loadError instanceof Error ? loadError.message : "Book could not be loaded.");
+    }).finally(() => setLoading(false));
     void fetchCategories().then(setCategories).catch(() => setCategories([]));
     void fetchStatuses().then(setCustomStatuses).catch(() => setCustomStatuses([]));
   }, [params.id]);
@@ -73,8 +77,9 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
       <AppShell>
         <div className="panel grid min-h-96 place-items-center p-8 text-center">
           <div>
-            <h1 className="font-serif text-3xl font-black">Book not found</h1>
-            <Link className="btn-primary mt-5" href="/">Back to Library</Link>
+            <h1 className="font-serif text-3xl font-black">{loading ? "Loading book..." : "Book not found"}</h1>
+            {!loading && saveError && process.env.NODE_ENV === "development" ? <p className="mt-2 text-sm font-semibold text-red-800">{saveError}</p> : null}
+            <Link className="btn-primary mt-5" href="/library">Back to Library</Link>
           </div>
         </div>
       </AppShell>
@@ -115,7 +120,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
   return (
     <AppShell>
       <div className="mb-5">
-        <Link href="/" className="btn-secondary">
+        <Link href="/library" className="btn-secondary">
           <ArrowLeft size={20} aria-hidden />
           Library
         </Link>
@@ -182,20 +187,30 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           />
           <button
             className="btn-primary mt-5 w-full text-lg"
+            disabled={saving}
             onClick={async () => {
-              const updated = await updateBook(book.id, draft, pendingPhotoFiles);
-              if (updated) {
+              setSaving(true);
+              setSaved(false);
+              setSaveError("");
+              try {
+                const updated = await updateBook(book.id, draft, pendingPhotoFiles);
+                if (!updated) throw new Error("Supabase did not return the updated book.");
                 setBook(updated);
                 const { id, inventory_id, inventory_prefix, inventory_number, profit, ...editable } = updated;
                 setDraft(editable);
+                clearPendingPhotos();
+                setSaved(true);
+              } catch (error) {
+                setSaveError(error instanceof Error ? error.message : "Changes could not be saved.");
+              } finally {
+                setSaving(false);
               }
-              clearPendingPhotos();
-              setSaved(true);
             }}
           >
             <Save size={22} aria-hidden />
-            {saved ? "Saved" : "Save Changes"}
+            {saving ? "Saving..." : saved ? "Saved" : "Save Changes"}
           </button>
+          {saveError ? <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{saveError}</p> : null}
         </div>
       </section>
     </AppShell>

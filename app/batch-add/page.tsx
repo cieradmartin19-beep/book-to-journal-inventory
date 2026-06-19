@@ -193,7 +193,7 @@ export default function BatchAddPage() {
           <ArrowLeft size={20} aria-hidden />
           Add Book
         </Link>
-        <Link href="/" className="btn-secondary w-full sm:w-auto">Library</Link>
+        <Link href="/library" className="btn-secondary w-full sm:w-auto">Library</Link>
       </div>
 
       <section className="panel p-4 sm:p-5">

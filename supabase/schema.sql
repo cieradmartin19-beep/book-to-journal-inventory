@@ -65,6 +65,9 @@ create table if not exists public.book_photos (
   created_at timestamptz not null default now()
 );
 
+alter table public.books add column if not exists category_id uuid;
+alter table public.books add column if not exists status_id uuid;
+
 alter table public.books
   drop constraint if exists books_status_check;
 
@@ -126,7 +129,8 @@ create policy "Users can insert their profile"
 drop policy if exists "Users can update their profile" on public.profiles;
 create policy "Users can update their profile"
   on public.profiles for update
-  using (auth.uid() = id);
+  using (auth.uid() = id)
+  with check (auth.uid() = id);
 
 drop policy if exists "Users can read their books" on public.books;
 create policy "Users can read their books"
@@ -141,7 +145,8 @@ create policy "Users can insert their books"
 drop policy if exists "Users can update their books" on public.books;
 create policy "Users can update their books"
   on public.books for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Users can delete their books" on public.books;
 create policy "Users can delete their books"
@@ -161,7 +166,8 @@ create policy "Users can insert their categories"
 drop policy if exists "Users can update their categories" on public.categories;
 create policy "Users can update their categories"
   on public.categories for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Users can delete their categories" on public.categories;
 create policy "Users can delete their categories"
@@ -181,7 +187,8 @@ create policy "Users can insert their statuses"
 drop policy if exists "Users can update their statuses" on public.statuses;
 create policy "Users can update their statuses"
   on public.statuses for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Users can delete their statuses" on public.statuses;
 create policy "Users can delete their statuses"
@@ -196,12 +203,16 @@ create policy "Users can read their book photos"
 drop policy if exists "Users can insert their book photos" on public.book_photos;
 create policy "Users can insert their book photos"
   on public.book_photos for insert
-  with check (auth.uid() = user_id);
+  with check (
+    auth.uid() = user_id
+    and exists (select 1 from public.books where books.id = book_id and books.user_id = auth.uid())
+  );
 
 drop policy if exists "Users can update their book photos" on public.book_photos;
 create policy "Users can update their book photos"
   on public.book_photos for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 drop policy if exists "Users can delete their book photos" on public.book_photos;
 create policy "Users can delete their book photos"
@@ -256,6 +267,23 @@ begin
     (target_user_id, 'Listed', '#76B7B2'),
     (target_user_id, 'Sold', '#B7B7B7')
   on conflict (user_id, name) do nothing;
+
+  insert into public.categories (user_id, name, color)
+  select distinct books.user_id, books.category, '#E9E1D2'
+  from public.books
+  where books.user_id = target_user_id
+    and books.category is not null
+    and books.category <> ''
+    and books.category <> 'Uncategorized'
+  on conflict (user_id, name) do nothing;
+
+  update public.books
+  set category_id = categories.id
+  from public.categories
+  where books.user_id = target_user_id
+    and categories.user_id = books.user_id
+    and categories.name = books.category
+    and books.category_id is null;
 end;
 $$ language plpgsql security definer set search_path = public;
 

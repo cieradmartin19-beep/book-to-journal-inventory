@@ -34,9 +34,11 @@ export function BookFormFields({
   const savedPhotoUrls = value.photo_urls ?? [];
   const allPhotoUrls = [...savedPhotoUrls, ...pendingPhotoUrls];
   const legacyCategoryValue = !value.category_id && value.category && value.category !== "Uncategorized" ? `legacy:${value.category}` : "";
-  const categorySelectValue = value.category_id ?? legacyCategoryValue;
+  const matchedCategory = categories.find((item) => item.name === value.category);
+  const categorySelectValue = value.category_id ?? matchedCategory?.id ?? legacyCategoryValue;
   const legacyStatusValue = !value.status_id && value.status && !statuses.some((item) => item.name === value.status) ? `legacy:${value.status}` : "";
-  const statusSelectValue = value.status_id ?? legacyStatusValue;
+  const matchedStatus = statuses.find((item) => item.name === value.status);
+  const statusSelectValue = value.status_id ?? matchedStatus?.id ?? legacyStatusValue;
 
   return (
     <div className="grid gap-4">
@@ -144,6 +146,7 @@ export function BookFormFields({
       <label className="grid gap-2">
         <span className="label">Category</span>
         <select
+          aria-label="Category"
           className="field"
           value={categorySelectValue}
           onChange={(event) => {
@@ -180,6 +183,7 @@ export function BookFormFields({
         <label className="grid gap-2">
           <span className="label">Status</span>
           <select
+            aria-label="Status"
             className="field"
             value={statusSelectValue}
             onChange={(event) => {

@@ -23,6 +23,16 @@ create table if not exists public.statuses (
   unique (user_id, name)
 );
 
+create table if not exists public.book_photos (
+  id uuid primary key default uuid_generate_v4(),
+  book_id uuid not null references public.books(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  url text not null,
+  storage_path text,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
 alter table public.books drop constraint if exists books_category_id_fkey;
 alter table public.books
   add constraint books_category_id_fkey
@@ -38,9 +48,65 @@ create index if not exists books_status_id_idx on public.books(status_id);
 create index if not exists categories_user_id_idx on public.categories(user_id);
 create index if not exists statuses_user_id_idx on public.statuses(user_id);
 create index if not exists statuses_user_sort_idx on public.statuses(user_id, sort_order);
+create index if not exists books_user_id_idx on public.books(user_id);
+create index if not exists books_public_idx on public.books(user_id, show_public);
+create index if not exists book_photos_book_id_idx on public.book_photos(book_id);
+create index if not exists book_photos_user_id_idx on public.book_photos(user_id);
 
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('book-photos', 'book-photos', true, 10485760, array['image/jpeg', 'image/png', 'image/webp', 'image/gif'])
+on conflict (id) do update set
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
+
+alter table public.profiles enable row level security;
+alter table public.books enable row level security;
+alter table public.book_photos enable row level security;
 alter table public.categories enable row level security;
 alter table public.statuses enable row level security;
+
+drop policy if exists "Users can read their profile" on public.profiles;
+create policy "Users can read their profile" on public.profiles for select using (auth.uid() = id);
+drop policy if exists "Users can insert their profile" on public.profiles;
+create policy "Users can insert their profile" on public.profiles for insert with check (auth.uid() = id);
+drop policy if exists "Users can update their profile" on public.profiles;
+create policy "Users can update their profile" on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+
+drop policy if exists "Users can read their books" on public.books;
+create policy "Users can read their books" on public.books for select using (auth.uid() = user_id);
+drop policy if exists "Users can insert their books" on public.books;
+create policy "Users can insert their books" on public.books for insert with check (auth.uid() = user_id);
+drop policy if exists "Users can update their books" on public.books;
+create policy "Users can update their books" on public.books for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users can delete their books" on public.books;
+create policy "Users can delete their books" on public.books for delete using (auth.uid() = user_id);
+
+drop policy if exists "Users can read their book photos" on public.book_photos;
+create policy "Users can read their book photos" on public.book_photos for select using (auth.uid() = user_id);
+drop policy if exists "Users can insert their book photos" on public.book_photos;
+create policy "Users can insert their book photos" on public.book_photos for insert with check (
+  auth.uid() = user_id and exists (select 1 from public.books where books.id = book_id and books.user_id = auth.uid())
+);
+drop policy if exists "Users can update their book photos" on public.book_photos;
+create policy "Users can update their book photos" on public.book_photos for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "Users can delete their book photos" on public.book_photos;
+create policy "Users can delete their book photos" on public.book_photos for delete using (auth.uid() = user_id);
+
+drop policy if exists "Anyone can read book photo files" on storage.objects;
+create policy "Anyone can read book photo files" on storage.objects for select using (bucket_id = 'book-photos');
+drop policy if exists "Users can upload their book photo files" on storage.objects;
+create policy "Users can upload their book photo files" on storage.objects for insert with check (
+  bucket_id = 'book-photos' and auth.uid()::text = (storage.foldername(name))[1]
+);
+drop policy if exists "Users can update their book photo files" on storage.objects;
+create policy "Users can update their book photo files" on storage.objects for update using (
+  bucket_id = 'book-photos' and auth.uid()::text = (storage.foldername(name))[1]
+) with check (bucket_id = 'book-photos' and auth.uid()::text = (storage.foldername(name))[1]);
+drop policy if exists "Users can delete their book photo files" on storage.objects;
+create policy "Users can delete their book photo files" on storage.objects for delete using (
+  bucket_id = 'book-photos' and auth.uid()::text = (storage.foldername(name))[1]
+);
 
 drop policy if exists "Users can read their categories" on public.categories;
 create policy "Users can read their categories"
@@ -52,7 +118,7 @@ create policy "Users can insert their categories"
 
 drop policy if exists "Users can update their categories" on public.categories;
 create policy "Users can update their categories"
-  on public.categories for update using (auth.uid() = user_id);
+  on public.categories for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "Users can delete their categories" on public.categories;
 create policy "Users can delete their categories"
@@ -68,7 +134,7 @@ create policy "Users can insert their statuses"
 
 drop policy if exists "Users can update their statuses" on public.statuses;
 create policy "Users can update their statuses"
-  on public.statuses for update using (auth.uid() = user_id);
+  on public.statuses for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 drop policy if exists "Users can delete their statuses" on public.statuses;
 create policy "Users can delete their statuses"
@@ -90,6 +156,23 @@ begin
     (target_user_id, 'Listed', '#76B7B2'),
     (target_user_id, 'Sold', '#B7B7B7')
   on conflict (user_id, name) do nothing;
+
+  insert into public.categories (user_id, name, color)
+  select distinct books.user_id, books.category, '#E9E1D2'
+  from public.books
+  where books.user_id = target_user_id
+    and books.category is not null
+    and books.category <> ''
+    and books.category <> 'Uncategorized'
+  on conflict (user_id, name) do nothing;
+
+  update public.books
+  set category_id = categories.id
+  from public.categories
+  where books.user_id = target_user_id
+    and categories.user_id = books.user_id
+    and categories.name = books.category
+    and books.category_id is null;
 end;
 $$ language plpgsql security definer set search_path = public;
 
@@ -124,8 +207,12 @@ begin
 end;
 $$ language plpgsql security definer set search_path = public;
 
-select public.ensure_default_categories(id) from public.profiles;
-select public.ensure_default_statuses(id) from public.profiles;
+insert into public.profiles (id)
+select id from auth.users
+on conflict (id) do nothing;
+
+select public.ensure_default_categories(id) from auth.users;
+select public.ensure_default_statuses(id) from auth.users;
 
 drop function if exists public.get_public_library_books(text);
 drop view if exists public.public_library_books;

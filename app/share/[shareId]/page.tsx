@@ -50,7 +50,7 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
             <BookOpen size={25} aria-hidden />
           </span>
           <div className="min-w-0">
-            <h1 className="font-serif text-2xl font-black leading-tight sm:text-3xl">Public Book Library</h1>
+            <h1 className="font-serif text-2xl font-black leading-tight sm:text-3xl">The Paper Curio’s Library</h1>
             <p className="font-semibold text-ink/65">A shareable peek at selected books and journals.</p>
           </div>
         </div>

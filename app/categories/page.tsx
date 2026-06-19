@@ -68,7 +68,7 @@ export default function ManageCategoriesPage() {
   return (
     <AppShell>
       <div className="mb-5">
-        <Link href="/" className="btn-secondary">
+        <Link href="/library" className="btn-secondary">
           <ArrowLeft size={20} aria-hidden />
           Library
         </Link>

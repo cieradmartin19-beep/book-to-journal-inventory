@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { BookOpen, LibraryBig, ListChecks, LogOut, Plus, Settings, Upload, UserCircle } from "lucide-react";
+import { BookOpen, Home, LibraryBig, ListChecks, LogOut, Plus, Settings, UserCircle } from "lucide-react";
 import { getCurrentUser, signOut, userDisplayName } from "@/lib/auth";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -62,13 +62,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <BookOpen size={26} aria-hidden />
           </span>
           <span className="min-w-0">
-            <span className="block truncate font-serif text-xl font-black leading-6 sm:text-2xl">
-              Book-to-Journal
-            </span>
-            <span className="text-sm font-bold text-ink/60">Inventory</span>
+            <span className="block truncate font-serif text-xl font-black leading-6 sm:text-2xl">The Paper Curio’s</span>
+            <span className="text-sm font-bold text-ink/60">Library</span>
           </span>
         </Link>
-        <div className="hidden items-center gap-3 sm:flex">
+        <div className="hidden items-center gap-2 lg:flex">
+          {(!isSupabaseConfigured || user) ? <>
+            <Link className="btn-secondary" href="/">Home</Link>
+            <Link className="btn-secondary" href="/library">Library</Link>
+            <Link className="btn-primary" href="/add"><Plus size={18} aria-hidden />Add Book</Link>
+            <Link className="btn-secondary" href="/categories">Categories</Link>
+            <Link className="btn-secondary" href="/statuses">Statuses</Link>
+          </> : null}
           {user ? (
             <div className="flex items-center gap-2 rounded-lg border-2 border-ink/10 bg-white px-3 py-2 text-sm font-black text-ink">
               <UserCircle size={18} aria-hidden />
@@ -80,12 +85,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <LogOut size={18} aria-hidden />
               Sign out
             </button>
-          ) : null}
-          {!isSupabaseConfigured || user ? (
-            <Link href="/add" className="btn-primary">
-              <Plus size={20} aria-hidden />
-              Add Book
-            </Link>
           ) : null}
         </div>
       </header>
@@ -113,16 +112,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-ink/10 bg-paper/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden">
           <div className="mx-auto grid max-w-md grid-cols-5 gap-1.5">
             <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/">
-              <LibraryBig size={18} aria-hidden />
-              Library
+              <Home size={18} aria-hidden />
+              Home
             </Link>
             <Link className="btn-primary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/add">
               <Plus size={18} aria-hidden />
               Add
             </Link>
-            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/batch-add">
-              <Upload size={18} aria-hidden />
-              Batch
+            <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/library">
+              <LibraryBig size={18} aria-hidden />
+              Library
             </Link>
             <Link className="btn-secondary min-h-12 flex-col gap-1 px-1.5 py-2 text-xs leading-none" href="/categories">
               <Settings size={18} aria-hidden />

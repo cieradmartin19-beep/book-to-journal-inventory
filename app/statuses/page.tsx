@@ -65,8 +65,15 @@ export default function ManageStatusesPage() {
     const swap = next[swapIndex];
     next[index] = { ...swap, sort_order: index };
     next[swapIndex] = { ...current, sort_order: swapIndex };
+    const previous = statuses;
     setStatuses(next);
-    await Promise.all([updateStatus(next[index].id, next[index]), updateStatus(next[swapIndex].id, next[swapIndex])]);
+    setError("");
+    try {
+      await Promise.all([updateStatus(next[index].id, next[index]), updateStatus(next[swapIndex].id, next[swapIndex])]);
+    } catch (moveError) {
+      setStatuses(previous);
+      setError(moveError instanceof Error ? moveError.message : "Statuses could not be reordered.");
+    }
   }
 
   async function removeStatus(status: CustomStatus) {
@@ -85,7 +92,7 @@ export default function ManageStatusesPage() {
   return (
     <AppShell>
       <div className="mb-5">
-        <Link href="/" className="btn-secondary">
+        <Link href="/library" className="btn-secondary">
           <ArrowLeft size={20} aria-hidden />
           Library
         </Link>

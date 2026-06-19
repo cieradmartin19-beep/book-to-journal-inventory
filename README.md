@@ -1,4 +1,4 @@
-# Book-to-Journal Inventory
+# The Paper Curio’s Library
 
 Mobile-friendly Next.js app for scanning, searching, manually entering, cataloging, and publicly sharing books or journal projects.
 
@@ -132,7 +132,10 @@ For Vercel production, add:
 6. Click **Run**.
 7. Confirm the query completes without errors.
 
-The schema is safe to run more than once for normal setup updates: tables, functions, triggers, views, indexes, and policies are created or replaced with guards where needed.
+For a brand-new project, run the full `supabase/schema.sql`. For the existing production project, run
+`supabase/migrations/repair-categories-statuses.sql` instead. The repair migration preserves existing books,
+adds missing category/status objects, seeds each existing user, restores RLS and Storage policies, and recreates
+the public library view/RPC. It is safe to run more than once.
 
 ### Verify Supabase Save/Load
 
@@ -146,11 +149,11 @@ npm run dev
 3. Open `/login`.
 4. Choose **Create account**, enter Jess's email and password, and create the account.
 5. If Supabase email confirmation is enabled, confirm Jess's email from her inbox.
-6. Sign in and confirm the dashboard says **Signed in as Jess**.
-7. Confirm the dashboard status reads **Supabase connected**.
-8. Add a test book from `/add`.
+6. Sign in and confirm the header says **Signed in as Jess**.
+7. Add a test book from `/add`.
+8. Confirm the app redirects to `/library` and shows **Book saved successfully.**
 9. In Supabase, go to **Table Editor > books** and confirm a new row appears with Jess's `auth.users.id` in `user_id`.
-10. Refresh the app. The book should still appear in the dashboard, loaded from Supabase.
+10. Refresh `/library`. The book should still appear, loaded from Supabase.
 11. Edit the book title or status, save it, then refresh again. The change should persist.
 12. Mark the book **Show on public library**, then open the share page from the QR/share panel and confirm the public card appears without private cost/profit fields.
 
@@ -230,7 +233,7 @@ When OCR succeeds, the app fills title, author, and ISBN when detected, searches
 
 Before deploying, verify these Supabase settings:
 
-1. Run `supabase/schema.sql` in Supabase SQL Editor.
+1. For this existing production database, run `supabase/migrations/repair-categories-statuses.sql` in Supabase SQL Editor. Use `supabase/schema.sql` only for a fresh project.
 2. Enable **Authentication > Sign In / Providers > Email** for email/password accounts.
 3. Optional: enable **Authentication > Sign In / Providers > Google**.
 4. Confirm **Table Editor > books** and **Table Editor > profiles** exist.

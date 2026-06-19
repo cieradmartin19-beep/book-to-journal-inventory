@@ -1,6 +1,7 @@
 "use client";
 
 import { ensureSupabaseUser } from "@/lib/inventory-repository";
+import { loadLocalBooks, saveLocalBooks } from "@/lib/books-store";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { Category } from "@/lib/types";
 
@@ -65,14 +66,21 @@ export async function fetchCategories(): Promise<Category[]> {
   if (error) throw error;
   if ((data ?? []).length > 0) return data as Category[];
 
-  const { data: inserted, error: insertError } = await supabase
+  const { error: insertError } = await supabase
     .from("categories")
-    .insert(starterCategories.map((category) => ({ ...category, user_id: user.id })))
-    .select("*")
-    .order("name", { ascending: true });
+    .upsert(starterCategories.map((category) => ({ ...category, user_id: user.id })), {
+      onConflict: "user_id,name",
+      ignoreDuplicates: true
+    });
 
   if (insertError) throw insertError;
-  return (inserted ?? []) as Category[];
+  const { data: seeded, error: reloadError } = await supabase
+    .from("categories")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("name", { ascending: true });
+  if (reloadError) throw reloadError;
+  return (seeded ?? []) as Category[];
 }
 
 export async function createCategory(name: string, color = "#7CC9A7"): Promise<Category> {
@@ -129,12 +137,25 @@ export async function updateCategory(id: string, updates: Pick<Category, "name" 
 export async function deleteCategory(id: string) {
   if (!isSupabaseConfigured) {
     saveLocalCategories(loadLocalCategories().filter((category) => category.id !== id));
+    saveLocalBooks(loadLocalBooks().map((book) => book.category_id === id ? {
+      ...book,
+      category_id: null,
+      category: "Uncategorized",
+      category_color: null
+    } : book));
     return;
   }
 
   const supabase = getSupabaseBrowserClient();
   const user = await ensureSupabaseUser();
   if (!supabase || !user) throw new Error("Supabase is not available.");
+
+  const { error: unassignError } = await supabase
+    .from("books")
+    .update({ category_id: null, category: "Uncategorized" })
+    .eq("category_id", id)
+    .eq("user_id", user.id);
+  if (unassignError && !/category_id/i.test(unassignError.message)) throw unassignError;
 
   const { error } = await supabase
     .from("categories")

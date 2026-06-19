@@ -56,6 +56,7 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const scannerControlsRef = useRef<IScannerControls | null>(null);
+  const scanTimeoutRef = useRef<number | null>(null);
   const activeModeRef = useRef<"idle" | "test" | "scan">("idle");
   const [mode, setMode] = useState<"idle" | "test" | "scan">("idle");
   const [status, setStatus] = useState("Ready to scan a barcode.");
@@ -114,6 +115,10 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
   }
 
   const stopCamera = useCallback((nextStatus = "Camera stopped.", refreshAfterStop = true) => {
+    if (scanTimeoutRef.current) {
+      window.clearTimeout(scanTimeoutRef.current);
+      scanTimeoutRef.current = null;
+    }
     activeModeRef.current = "idle";
     scannerControlsRef.current?.stop();
     scannerControlsRef.current = null;
@@ -137,9 +142,14 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
   useEffect(() => {
     void refreshDiagnostics();
     return () => {
-      stopCamera("Camera stopped while leaving the page.", false);
+      activeModeRef.current = "idle";
+      scannerControlsRef.current?.stop();
+      scannerControlsRef.current = null;
+      if (scanTimeoutRef.current) window.clearTimeout(scanTimeoutRef.current);
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
     };
-  }, [refreshDiagnostics, stopCamera]);
+  }, [refreshDiagnostics]);
 
   async function openCameraStream() {
     updateDiagnostics({ startError: "", decodeError: "", detectedBarcode: "" });
@@ -211,15 +221,19 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
     updateDiagnostics({ detectedBarcode: "", decodeError: "" });
     setStatus("Starting barcode scanner...");
     stopCamera("Starting barcode scanner...");
-    setMode("scan");
-    activeModeRef.current = "scan";
-
     try {
       const stream = await openCameraStream();
       const video = videoRef.current;
       if (!video) throw new Error("Camera preview element is missing.");
 
       const codeReader = createIsbnBarcodeReader();
+      activeModeRef.current = "scan";
+      setMode("scan");
+      scanTimeoutRef.current = window.setTimeout(() => {
+        if (activeModeRef.current === "scan") {
+          stopCamera("No barcode detected. Try uploading a barcode photo or typing the ISBN.");
+        }
+      }, 15000);
       const controls = await codeReader.decodeFromStream(stream, video, (result, error) => {
         if (activeModeRef.current !== "scan") return;
 
@@ -246,7 +260,6 @@ export default function LiveBarcodeScanner({ disabled = false, onDetected }: Liv
       });
 
       scannerControlsRef.current = controls;
-      setMode("scan");
       setStatus("Scanning... hold the ISBN barcode inside the frame.");
     } catch (error) {
       const message = describeError(error);

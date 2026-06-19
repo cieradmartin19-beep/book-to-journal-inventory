@@ -62,14 +62,21 @@ export async function fetchStatuses(): Promise<CustomStatus[]> {
   if (error) throw error;
   if ((data ?? []).length > 0) return data as CustomStatus[];
 
-  const { data: inserted, error: insertError } = await supabase
+  const { error: insertError } = await supabase
     .from("statuses")
-    .insert(starterStatuses.map((status, index) => ({ ...status, sort_order: index, user_id: user.id })))
-    .select("*")
-    .order("sort_order", { ascending: true });
+    .upsert(starterStatuses.map((status, index) => ({ ...status, sort_order: index, user_id: user.id })), {
+      onConflict: "user_id,name",
+      ignoreDuplicates: true
+    });
 
   if (insertError) throw insertError;
-  return (inserted ?? []) as CustomStatus[];
+  const { data: seeded, error: reloadError } = await supabase
+    .from("statuses")
+    .select("*")
+    .eq("user_id", user.id)
+    .order("sort_order", { ascending: true });
+  if (reloadError) throw reloadError;
+  return (seeded ?? []) as CustomStatus[];
 }
 
 export async function createStatus(name: string, color = "#E9E1D2", sortOrder?: number): Promise<CustomStatus> {
