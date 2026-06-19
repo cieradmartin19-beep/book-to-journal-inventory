@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -28,23 +27,12 @@ import {
   cleanIsbn,
   fileToDataUrl,
   lookupGoogleBooks,
-  scanCoverForBook,
   suggestionToDraft
 } from "@/lib/book-lookup";
-import type { CoverScanDiagnostics, OcrDebugInfo } from "@/lib/book-lookup";
 import { createBook, fetchBooks } from "@/lib/inventory-repository";
 import { nextInventoryId } from "@/lib/mock-data";
 import type { Book, BookDraft, CustomStatus, GoogleBookSuggestion } from "@/lib/types";
 import type { Category } from "@/lib/types";
-
-const LiveBarcodeScanner = dynamic(() => import("@/components/LiveBarcodeScanner"), {
-  ssr: false,
-  loading: () => (
-    <div className="rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold text-ink/70">
-      Loading camera scanner...
-    </div>
-  )
-});
 
 export default function AddBookPage() {
   const router = useRouter();
@@ -72,18 +60,6 @@ export default function AddBookPage() {
   const [coverCameraOpen, setCoverCameraOpen] = useState(false);
   const [coverCameraStatus, setCoverCameraStatus] = useState("Point your camera at the book cover.");
   const [coverScanPreview, setCoverScanPreview] = useState("");
-  const [debugMode, setDebugMode] = useState(false);
-  const [ocrDebug, setOcrDebug] = useState<{
-    detectedTitle: string;
-    detectedAuthor: string;
-    detectedIsbn: string;
-    detectedText: string;
-    confidence: number;
-    source: string;
-    message: string;
-    debug?: OcrDebugInfo;
-  } | null>(null);
-  const [coverScanDiagnostics, setCoverScanDiagnostics] = useState<CoverScanDiagnostics | null>(null);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -102,10 +78,6 @@ export default function AddBookPage() {
         });
       }
     }).catch(() => setCustomStatuses([]));
-  }, []);
-
-  useEffect(() => {
-    setDebugMode(process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("debug") === "true");
   }, []);
 
   useEffect(() => {
@@ -230,7 +202,7 @@ export default function AddBookPage() {
     const image = canvas.toDataURL("image/jpeg", 0.9);
     const file = dataUrlToFile(image, `cover-scan-${Date.now()}.jpg`);
     stopCoverCamera();
-    await processCoverImage(image, file);
+    prepareCoverPhoto(image, file);
   }
 
   async function lookupByIsbn(rawIsbn: string, coverUrl = "") {
@@ -242,7 +214,13 @@ export default function AddBookPage() {
     setSuggestion(null);
     setSuggestions([]);
 
-    const base = { ...blankDraft(coverUrl), isbn };
+    const base = {
+      ...blankDraft(coverUrl),
+      isbn,
+      status_id: draft.status_id,
+      status: draft.status,
+      status_color: draft.status_color
+    };
     if (!isbn) {
       setDraft(base);
       setStatusText("No ISBN was found. You can type the details manually.");
@@ -285,105 +263,20 @@ export default function AddBookPage() {
     });
   }
 
-  async function processCoverImage(image: string, capturedCoverFile?: File) {
+  function prepareCoverPhoto(image: string, capturedCoverFile: File) {
     setCoverScanPreview(image);
-    setDraft(blankDraft(image));
-    setStep("looking");
+    setDraft((current) => ({ ...current, cover_url: image }));
+    addPendingPhotos([capturedCoverFile]);
+    setStep("review");
     setSuggestion(null);
     setSuggestions([]);
     setLookupError("");
-    setOcrDebug(null);
-    setCoverScanDiagnostics(null);
-    setStatusText("Identifying book...");
-    if (capturedCoverFile) {
-      addPendingPhotos([capturedCoverFile]);
-    }
-
-    let result: Awaited<ReturnType<typeof scanCoverForBook>>;
-    try {
-      result = await scanCoverForBook(image);
-      console.log("[cover-scan-client-debug] cover scan result", {
-        detectedTitle: result.detectedTitle,
-        detectedAuthor: result.detectedAuthor,
-        detectedIsbn: result.detectedIsbn,
-        ocrText: result.detectedText,
-        matchesReturned: result.suggestions.length,
-        matchSources: result.suggestions.map((match) => match.source || "unknown"),
-        diagnostics: result.diagnostics
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "We couldn't identify this book automatically.";
-      console.error("[cover-scan-client-debug] cover scan error", message);
-      const unavailable = /API_KEY_SERVICE_BLOCKED|PERMISSION_DENIED|permission|blocked/i.test(message);
-      const friendly = unavailable
-        ? "Cover recognition is not available right now. You can still search by ISBN, search by title, upload a photo, or enter the book manually."
-        : "We couldn't identify this book automatically. You can still enter it manually.";
-      setLookupError(friendly);
-      setStatusText(friendly);
-      setCoverScanDiagnostics({
-        ocrEnabled: false,
-        googleBooksApiEnabled: false,
-        ocrTextDetected: "",
-        googleBooksQuery: "",
-        googleBooksQueries: [],
-        matchesReturned: 0,
-        firstResultTitle: "",
-        apiErrors: [message],
-        failureReason: message
-      });
-      setStep("review");
-      return;
-    }
-    setOcrDebug({
-      detectedTitle: result.detectedTitle,
-      detectedAuthor: result.detectedAuthor,
-      detectedIsbn: result.detectedIsbn,
-      detectedText: result.detectedText,
-      confidence: result.confidence,
-      source: result.source,
-      message: result.message,
-      debug: result.debug
-    });
-    setCoverScanDiagnostics(result.diagnostics);
-    const ocrFallbackTitle =
-      result.detectedTitle ||
-      result.detectedText
-        .split(/\r?\n/)
-        .map((line) => line.replace(/\s+/g, " ").trim())
-        .find((line) => line && !/isbn|barcode|copyright|www\.|\.com/i.test(line)) ||
-      "";
-    const ocrDraft = {
-      ...blankDraft(image),
-      title: ocrFallbackTitle,
-      author: result.detectedAuthor,
-      isbn: result.detectedIsbn
-    };
-
-    if (result.suggestions.length > 0) {
-      setSuggestion(result.suggestion);
-      setSuggestions(result.suggestions);
-      setDraft(suggestionToDraft(result.suggestion, ocrDraft));
-      setStatusText(
-        result.detectedIsbn
-          ? `Detected ISBN ${result.detectedIsbn}. Choose the correct Google Books match or edit manually.`
-          : result.detectedTitle
-            ? `Detected "${result.detectedTitle}". Choose the correct Google Books match or edit manually.`
-          : "Google Books matches are ready. Choose the best one or edit manually."
-      );
-    } else {
-      setSuggestion(null);
-      setDraft(ocrDraft);
-      if (result.error) {
-        setLookupError("We couldn't identify this book automatically. You can still enter it manually.");
-      }
-      setStatusText("We couldn't identify this book automatically. You can still enter it manually.");
-    }
-    setStep("review");
+    setStatusText("Cover photo added. Enter the book details or use ISBN/title search, then save.");
   }
 
   async function handleCoverFile(file: File) {
     const image = await fileToDataUrl(file);
-    await processCoverImage(image, file);
+    prepareCoverPhoto(image, file);
   }
 
   async function lookupByTitle() {
@@ -393,7 +286,14 @@ export default function AddBookPage() {
     setStatusText("Searching Google Books by title and author...");
     setSuggestion(null);
     setSuggestions([]);
-    const base = { ...blankDraft(), title: manualTitle, author: manualAuthor };
+    const base = {
+      ...blankDraft(draft.cover_url),
+      title: manualTitle,
+      author: manualAuthor,
+      status_id: draft.status_id,
+      status: draft.status,
+      status_color: draft.status_color
+    };
     const result = manualTitle
       ? await lookupGoogleBooks({ title: manualTitle, author: manualAuthor })
       : { suggestions: [] as GoogleBookSuggestion[], error: false, message: "" };
@@ -512,15 +412,8 @@ export default function AddBookPage() {
             <div className="rounded-lg bg-honey/25 p-3 sm:p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Barcode size={22} aria-hidden />
-                <h2 className="text-lg font-black sm:text-xl">1. Scan barcode/ISBN</h2>
+                <h2 className="text-lg font-black sm:text-xl">1. Search by ISBN</h2>
               </div>
-              <LiveBarcodeScanner
-                disabled={isbnLookupLoading}
-                onDetected={(isbn) => {
-                  setIsbnEntry(isbn);
-                  void lookupByIsbn(isbn);
-                }}
-              />
               <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
                 <input
                   className="field"
@@ -580,7 +473,7 @@ export default function AddBookPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={coverScanPreview} alt="Captured or uploaded book cover preview" className="h-full w-full object-cover" />
                   </div>
-                  <p className="p-3 text-sm font-bold text-ink/65">Front cover photo ready for OCR and Google Books matching.</p>
+                  <p className="p-3 text-sm font-bold text-ink/65">Front cover photo added. It will be saved with this book.</p>
                 </div>
               ) : null}
             </div>
@@ -614,7 +507,14 @@ export default function AddBookPage() {
                       setSuggestion(null);
                       setSuggestions([]);
                       setLookupError("");
-                      setDraft({ ...blankDraft(), title: manualTitle, author: manualAuthor });
+                      setDraft({
+                        ...blankDraft(draft.cover_url),
+                        title: manualTitle,
+                        author: manualAuthor,
+                        status_id: draft.status_id,
+                        status: draft.status,
+                        status_color: draft.status_color
+                      });
                       setStatusText("Manual entry is ready.");
                       setStep("review");
                     }}
@@ -635,7 +535,7 @@ export default function AddBookPage() {
                 <Sparkles className="mx-auto mb-4 text-marigold" size={46} aria-hidden />
                 <h2 className="font-serif text-2xl font-black sm:text-3xl">Choose an add method</h2>
                 <p className="mx-auto mt-2 max-w-sm font-semibold text-ink/65">
-                  ISBN search is fastest, cover scan is handy, and manual entry is always there.
+                  ISBN search is fastest, cover photos are optional, and manual entry is always available.
                 </p>
               </div>
             </div>
@@ -692,60 +592,6 @@ export default function AddBookPage() {
                   )}
                 </div>
               </div>
-              {debugMode && coverScanDiagnostics ? (
-                <div className="grid gap-3 rounded-lg border-2 border-ink/10 bg-white p-3 sm:p-4">
-                  <div>
-                    <p className="text-sm font-black uppercase tracking-wide text-marigold">Cover scan diagnostics</p>
-                    <p className="mt-1 text-sm font-semibold text-ink/65">
-                      Automatic identification details from OCR and Google Books.
-                    </p>
-                  </div>
-                  <div className="grid gap-2 text-sm font-bold text-ink/75 sm:grid-cols-2">
-                    <p className="rounded-lg bg-honey/20 p-2">OCR enabled? {coverScanDiagnostics.ocrEnabled ? "yes" : "no"}</p>
-                    <p className="rounded-lg bg-honey/20 p-2">
-                      Google Books API enabled? {coverScanDiagnostics.googleBooksApiEnabled ? "yes" : "no"}
-                    </p>
-                    <p className="rounded-lg bg-honey/20 p-2">Matches returned: {coverScanDiagnostics.matchesReturned}</p>
-                    <p className="rounded-lg bg-honey/20 p-2">
-                      First result: {coverScanDiagnostics.firstResultTitle || "No Google Books result title returned"}
-                    </p>
-                    <p className="rounded-lg bg-honey/20 p-2">
-                      Status: {coverScanDiagnostics.failureReason ? "Needs manual review" : "Matches found"}
-                    </p>
-                  </div>
-                  <div className="grid gap-2">
-                    <div className="rounded-lg bg-ink/5 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">OCR text detected</p>
-                      <pre className="mt-2 max-h-36 overflow-auto whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
-                        {coverScanDiagnostics.ocrTextDetected || "No OCR text detected."}
-                      </pre>
-                    </div>
-                    <div className="rounded-lg bg-ink/5 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Exact Google Books query sent</p>
-                      <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
-                        {coverScanDiagnostics.googleBooksQuery || "No Google Books query was sent."}
-                      </pre>
-                    </div>
-                    <div className="rounded-lg bg-ink/5 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Fallback provider queries sent</p>
-                      <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
-                        {(coverScanDiagnostics.providerQueries ?? []).length
-                          ? (coverScanDiagnostics.providerQueries ?? []).join("\n")
-                          : "No fallback provider query was sent."}
-                      </pre>
-                    </div>
-                    <div className={`rounded-lg p-3 ${coverScanDiagnostics.apiErrors.length || coverScanDiagnostics.failureReason ? "bg-rose/15" : "bg-mint/20"}`}>
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">API errors / failure reason</p>
-                      <pre className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/75">
-                        {[
-                          ...coverScanDiagnostics.apiErrors,
-                          coverScanDiagnostics.failureReason
-                        ].filter(Boolean).join("\n") || "No API errors reported."}
-                      </pre>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
               {suggestions.length > 0 && (
                 <div className="grid gap-3">
                   <div>
@@ -796,42 +642,6 @@ export default function AddBookPage() {
                   </div>
                 </div>
               )}
-              {debugMode && ocrDebug ? (
-                <div className="grid gap-3 rounded-lg border-2 border-ink/10 bg-white p-3 sm:p-4">
-                  <div>
-                    <p className="text-sm font-black uppercase tracking-wide text-marigold">OCR debug</p>
-                    <p className="mt-1 text-sm font-semibold text-ink/65">
-                      Source: {ocrDebug.source} · Confidence: {Math.round((ocrDebug.confidence || 0) * 100)}%
-                    </p>
-                  </div>
-                  <div className="grid gap-2 text-sm font-bold text-ink/75 sm:grid-cols-3">
-                    <p className="break-words rounded-lg bg-honey/20 p-2">Title: {ocrDebug.detectedTitle || "None"}</p>
-                    <p className="break-words rounded-lg bg-honey/20 p-2">Author: {ocrDebug.detectedAuthor || "None"}</p>
-                    <p className="break-words rounded-lg bg-honey/20 p-2">ISBN: {ocrDebug.detectedIsbn || "None"}</p>
-                  </div>
-                  {ocrDebug.debug?.lines?.length ? (
-                    <div className="rounded-lg bg-ink/5 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">
-                        Detected lines ({ocrDebug.debug.lineCount ?? ocrDebug.debug.lines.length})
-                      </p>
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/70">
-                        {ocrDebug.debug.lines.join("\n")}
-                      </pre>
-                    </div>
-                  ) : ocrDebug.detectedText ? (
-                    <div className="rounded-lg bg-ink/5 p-3">
-                      <p className="text-xs font-black uppercase tracking-wide text-ink/55">Detected text</p>
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs font-semibold leading-5 text-ink/70">
-                        {ocrDebug.detectedText.slice(0, 1200)}
-                      </pre>
-                    </div>
-                  ) : (
-                    <p className="rounded-lg bg-rose/15 p-3 text-sm font-bold text-ink/70">
-                      {ocrDebug.message || "No OCR text was detected. Manual entry is ready."}
-                    </p>
-                  )}
-                </div>
-              ) : null}
               <BookFormFields
                 value={draft}
                 onChange={setDraft}
