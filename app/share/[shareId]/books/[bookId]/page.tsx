@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, BookOpen, WandSparkles } from "lucide-react";
+import { ArrowLeft, WandSparkles } from "lucide-react";
 import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { displayCategory } from "@/lib/categories";
 import { fetchPublicBooks } from "@/lib/inventory-repository";
 import { displayStatus } from "@/lib/statuses";
@@ -28,7 +29,7 @@ export default function PublicBookPage({ params }: { params: { shareId: string; 
   const status = displayStatus(book);
   return (
     <main className="mx-auto min-h-screen max-w-5xl px-3 py-4 sm:px-6 sm:py-8">
-      <header className="mb-6 flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-md border border-gold bg-gold text-ink"><BookOpen size={26} aria-hidden /></span><div><p className="font-serif text-2xl font-black">The Paper Curio</p><p className="text-sm font-bold text-paper/60">Curated Books • Handmade Journals • Creative Collections</p></div></header>
+      <header className="mb-6"><BrandLogo className="h-20 w-20 sm:h-24 sm:w-24" /></header>
       <Link href={`/share/${params.shareId}`} className="btn-secondary mb-5"><ArrowLeft size={19} aria-hidden />Public Library</Link>
       <section className="grid gap-5 md:grid-cols-[300px_minmax(0,1fr)]">
         <div className="panel relative aspect-[4/5] overflow-hidden bg-honey/20"><Image src={book.cover_url || "/placeholder-cover.svg"} alt={`${book.title} cover`} fill sizes="300px" className="object-cover" /></div>

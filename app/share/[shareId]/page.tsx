@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { BookOpen, ArrowLeft, WandSparkles } from "lucide-react";
+import { ArrowLeft, WandSparkles } from "lucide-react";
 import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { displayCategory } from "@/lib/categories";
 import { displayStatus } from "@/lib/statuses";
 import { fetchPublicBooks } from "@/lib/inventory-repository";
@@ -45,15 +46,7 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
       <header className="mb-6 flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-gold bg-gold text-ink shadow-soft sm:h-12 sm:w-12">
-            <BookOpen size={25} aria-hidden />
-          </span>
-          <div className="min-w-0">
-            <h1 className="font-serif text-2xl font-black leading-tight sm:text-3xl">The Paper Curio</h1>
-            <p className="font-semibold text-paper/65">Curated Books • Handmade Journals • Creative Collections</p>
-          </div>
-        </div>
+        <BrandLogo className="h-20 w-20 sm:h-24 sm:w-24" />
         <Link href="/" className="btn-secondary hidden sm:inline-flex">
           <ArrowLeft size={20} aria-hidden />
           Owner View

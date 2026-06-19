@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, BookOpen, Chrome, Loader2, LogIn, UserPlus } from "lucide-react";
+import { ArrowLeft, Chrome, Loader2, LogIn, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { ensureProfile, getCurrentUser, userDisplayName } from "@/lib/auth";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -130,9 +131,7 @@ export default function LoginPage() {
     return (
       <main className="mx-auto grid min-h-screen max-w-xl place-items-center px-4 py-8">
         <div className="panel p-6 text-center">
-          <BookOpen className="mx-auto mb-4 text-marigold" size={48} aria-hidden />
-          <h1 className="font-serif text-3xl font-black">The Paper Curio</h1>
-          <p className="mt-2 font-black text-marigold">Curated Books • Handmade Journals • Creative Collections</p>
+          <BrandLogo className="mx-auto h-36 w-36" />
           <h2 className="mt-5 text-xl font-black">Supabase is not configured</h2>
           <p className="mt-2 font-semibold text-ink/65">Add Supabase environment variables before using real login.</p>
         </div>
@@ -150,10 +149,8 @@ export default function LoginPage() {
 
         <section className="panel grid gap-5 p-5 sm:p-6">
           <div className="text-center">
-            <BookOpen className="mx-auto mb-4 text-marigold" size={50} aria-hidden />
+            <BrandLogo className="mx-auto h-36 w-36 sm:h-40 sm:w-40" />
             <p className="text-sm font-black uppercase tracking-wide text-marigold">Account Login</p>
-            <h1 className="mt-1 font-serif text-4xl font-black">The Paper Curio</h1>
-            <p className="mt-2 font-black text-marigold">Curated Books • Handmade Journals • Creative Collections</p>
             <h2 className="mt-4 text-xl font-black">
               {mode === "create" ? "Create Jess\u0027s inventory account." : "Sign in to manage your inventory."}
             </h2>

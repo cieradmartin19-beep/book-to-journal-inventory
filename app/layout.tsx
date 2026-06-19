@@ -8,6 +8,10 @@ const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfa
 export const metadata: Metadata = {
   title: "The Paper Curio",
   description: "Curated Books • Handmade Journals • Creative Collections",
+  icons: {
+    icon: "/paper-curio-logo.png",
+    apple: "/paper-curio-logo.png"
+  },
   openGraph: {
     title: "The Paper Curio",
     description: "Curated Books • Handmade Journals • Creative Collections",

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
-import { BookOpen, ClipboardList, Home, LibraryBig, ListChecks, LogOut, Plus, Settings, UserCircle } from "lucide-react";
+import { ClipboardList, Home, LibraryBig, ListChecks, LogOut, Plus, Settings, UserCircle } from "lucide-react";
+import { BrandLogo } from "@/components/BrandLogo";
 import { getCurrentUser, signOut, userDisplayName } from "@/lib/auth";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -57,14 +58,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-3 sm:px-6 sm:pt-4 lg:px-8">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-gold/30 py-3 sm:mb-5 xl:flex-nowrap">
-        <Link href="/" className="flex min-w-0 flex-1 items-center gap-3 lg:min-w-[340px]">
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md border border-gold bg-gold text-ink shadow-soft sm:h-12 sm:w-12">
-            <BookOpen size={26} aria-hidden />
-          </span>
-          <span className="min-w-0">
-            <span className="block font-serif text-xl font-black leading-6 text-paper sm:text-2xl">The Paper Curio</span>
-            <span className="block text-xs font-bold text-paper/60 sm:text-sm">Curated Books • Handmade Journals • Creative Collections</span>
-          </span>
+        <Link href="/" aria-label="The Paper Curio home" className="shrink-0">
+          <BrandLogo className="h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24" />
         </Link>
         <div className="hidden flex-wrap items-center justify-end gap-1.5 lg:flex">
           {(!isSupabaseConfigured || user) ? <>
