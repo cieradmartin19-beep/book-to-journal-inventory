@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -27,12 +28,26 @@ import {
   cleanIsbn,
   fileToDataUrl,
   lookupGoogleBooks,
+  scanCoverForBook,
   suggestionToDraft
 } from "@/lib/book-lookup";
 import { createBook, fetchBooks } from "@/lib/inventory-repository";
 import { nextInventoryId } from "@/lib/mock-data";
 import type { Book, BookDraft, CustomStatus, GoogleBookSuggestion } from "@/lib/types";
 import type { Category } from "@/lib/types";
+
+const LiveBarcodeScanner = dynamic(() => import("@/components/LiveBarcodeScanner"), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-lg border-2 border-gold/35 bg-white p-3 text-sm font-bold text-ink/70">
+      Loading camera scanner...
+    </div>
+  )
+});
+
+const COVER_RECOGNITION_UNAVAILABLE =
+  "Cover recognition is not available right now. You can still search by ISBN, search by title, upload a photo, or enter manually.";
+const NO_COVER_MATCHES = "No matching books found. Try searching by title or enter manually.";
 
 export default function AddBookPage() {
   const router = useRouter();
@@ -202,7 +217,7 @@ export default function AddBookPage() {
     const image = canvas.toDataURL("image/jpeg", 0.9);
     const file = dataUrlToFile(image, `cover-scan-${Date.now()}.jpg`);
     stopCoverCamera();
-    prepareCoverPhoto(image, file);
+    void processCoverPhoto(image, file);
   }
 
   async function lookupByIsbn(rawIsbn: string, coverUrl = "") {
@@ -263,20 +278,72 @@ export default function AddBookPage() {
     });
   }
 
-  function prepareCoverPhoto(image: string, capturedCoverFile: File) {
+  async function processCoverPhoto(image: string, capturedCoverFile: File) {
     setCoverScanPreview(image);
-    setDraft((current) => ({ ...current, cover_url: image }));
     addPendingPhotos([capturedCoverFile]);
-    setStep("review");
+    setStep("looking");
     setSuggestion(null);
     setSuggestions([]);
     setLookupError("");
-    setStatusText("Cover photo added. Enter the book details or use ISBN/title search, then save.");
+    setStatusText("Identifying book...");
+
+    const base = {
+      ...blankDraft(image),
+      category_id: draft.category_id,
+      category: draft.category,
+      category_color: draft.category_color,
+      condition: draft.condition,
+      status_id: draft.status_id,
+      status: draft.status,
+      status_color: draft.status_color,
+      cost: draft.cost,
+      listed_price: draft.listed_price,
+      sold_price: draft.sold_price,
+      notes: draft.notes,
+      show_public: draft.show_public
+    };
+    setDraft(base);
+
+    try {
+      const result = await scanCoverForBook(image);
+      const fallbackTitle = result.detectedTitle || result.detectedText
+        .split(/\r?\n/)
+        .map((line) => line.replace(/\s+/g, " ").trim())
+        .find((line) => line && !/isbn|barcode|copyright|www\.|\.com/i.test(line)) || "";
+      const recognizedDraft = {
+        ...base,
+        title: fallbackTitle,
+        author: result.detectedAuthor,
+        isbn: result.detectedIsbn
+      };
+
+      setManualTitle(fallbackTitle);
+      setManualAuthor(result.detectedAuthor);
+
+      if (result.suggestions.length > 0) {
+        setSuggestion(result.suggestion);
+        setSuggestions(result.suggestions);
+        setDraft(suggestionToDraft(result.suggestion, recognizedDraft));
+        setStatusText("Google Books matches found. Choose the correct match or edit the details manually.");
+      } else {
+        setDraft(recognizedDraft);
+        const visionFailed = !result.diagnostics.ocrEnabled || Boolean(result.debug?.error);
+        const message = visionFailed ? COVER_RECOGNITION_UNAVAILABLE : NO_COVER_MATCHES;
+        setLookupError(message);
+        setStatusText(message);
+      }
+    } catch {
+      setDraft(base);
+      setLookupError(COVER_RECOGNITION_UNAVAILABLE);
+      setStatusText(COVER_RECOGNITION_UNAVAILABLE);
+    } finally {
+      setStep("review");
+    }
   }
 
   async function handleCoverFile(file: File) {
     const image = await fileToDataUrl(file);
-    prepareCoverPhoto(image, file);
+    await processCoverPhoto(image, file);
   }
 
   async function lookupByTitle() {
@@ -412,8 +479,15 @@ export default function AddBookPage() {
             <div className="rounded-lg bg-honey/25 p-3 sm:p-4">
               <div className="mb-3 flex items-center gap-2">
                 <Barcode size={22} aria-hidden />
-                <h2 className="text-lg font-black sm:text-xl">1. Search by ISBN</h2>
+                <h2 className="text-lg font-black sm:text-xl">1. Scan barcode or search ISBN</h2>
               </div>
+              <LiveBarcodeScanner
+                disabled={isbnLookupLoading}
+                onDetected={(isbn) => {
+                  setIsbnEntry(isbn);
+                  void lookupByIsbn(isbn);
+                }}
+              />
               <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto]">
                 <input
                   className="field"
@@ -473,7 +547,16 @@ export default function AddBookPage() {
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={coverScanPreview} alt="Captured or uploaded book cover preview" className="h-full w-full object-cover" />
                   </div>
-                  <p className="p-3 text-sm font-bold text-ink/65">Front cover photo added. It will be saved with this book.</p>
+                  <div className="grid gap-2 p-3">
+                    <p className="text-sm font-bold text-ink/65">Front cover photo added. It will be saved with this book.</p>
+                    <button
+                      className="btn-secondary w-full"
+                      type="button"
+                      onClick={() => setDraft((current) => ({ ...current, cover_url: coverScanPreview }))}
+                    >
+                      Use my photo as cover
+                    </button>
+                  </div>
                 </div>
               ) : null}
             </div>
@@ -595,7 +678,7 @@ export default function AddBookPage() {
               {suggestions.length > 0 && (
                 <div className="grid gap-3">
                   <div>
-                    <p className="text-sm font-black uppercase tracking-wide text-marigold">Top book matches</p>
+                    <p className="text-sm font-black uppercase tracking-wide text-marigold">Top Google Books Matches.</p>
                     <p className="mt-1 text-sm font-semibold text-ink/65">Select the cover/title that matches your book, then edit anything below.</p>
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
