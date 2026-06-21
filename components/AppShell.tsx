@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { ClipboardList, Home, LibraryBig, ListChecks, LogOut, Plus, Settings, UserCircle } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
+import { PublicWelcome } from "@/components/PublicWelcome";
 import { getCurrentUser, signOut, userDisplayName } from "@/lib/auth";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -57,7 +58,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-3 pb-24 pt-3 sm:px-6 sm:pt-4 lg:px-8">
-      <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-gold/30 py-3 sm:mb-5 xl:flex-nowrap">
+      {authLoading || !isSupabaseConfigured || user ? <header className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-gold/30 py-3 sm:mb-5 xl:flex-nowrap">
         <Link href="/" aria-label="The Paper Curio home" className="shrink-0">
           <BrandLogo className="h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24" />
         </Link>
@@ -83,7 +84,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </button>
           ) : null}
         </div>
-      </header>
+      </header> : null}
       <main className="flex-1">
         {authLoading ? (
           <div className="panel grid min-h-96 place-items-center p-8 text-center">
@@ -94,19 +95,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         ) : !isSupabaseConfigured || user ? (
           children
-        ) : (
-          <div className="panel grid min-h-96 place-items-center p-8 text-center">
-            <div className="max-w-md">
-              <UserCircle className="mx-auto mb-4 text-marigold" size={48} aria-hidden />
-              <h1 className="font-serif text-3xl font-black">Welcome to The Paper Curio</h1>
-              <p className="mt-2 font-black text-marigold">Curated Books • Handmade Journals • Creative Collections</p>
-              <p className="mt-2 font-semibold text-ink/65">Jess can sign in to see only her saved books, photos, categories, and statuses.</p>
-              <Link className="btn-primary mt-5" href="/login">
-                Sign in
-              </Link>
-            </div>
-          </div>
-        )}
+        ) : <PublicWelcome />}
       </main>
       {isSupabaseConfigured && !user ? null : (
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-gold/45 bg-ink/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden">
