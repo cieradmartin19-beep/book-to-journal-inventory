@@ -78,7 +78,7 @@ export default function OrdersPage() {
                 <a className="flex items-center gap-2 break-all" href={`tel:${order.customer_phone}`}><Phone size={17} aria-hidden />{order.customer_phone || "No phone"}</a>
                 <a className="flex items-center gap-2 break-all" href={`mailto:${order.customer_email}`}><Mail size={17} aria-hidden />{order.customer_email || "No email"}</a>
                 <p><strong>Preferred contact:</strong> {order.preferred_contact}</p>
-                <p><strong>Pages:</strong> {order.page_count === "Custom amount" ? `${order.custom_page_count} pages` : order.page_count}</p>
+                <p><strong>Pages:</strong> {order.page_count === "Custom amount" ? `${order.custom_page_count} pages` : order.page_count === "50 pages" ? "50 pages (mini books only)" : order.page_count}</p>
                 <p className="sm:col-span-2"><strong>Book:</strong> {order.books?.title || "Customer has their own book"}{order.books?.author ? ` — ${order.books.author}` : ""}</p>
               </div>
 

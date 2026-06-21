@@ -8,7 +8,11 @@ import { fetchPublicBooks } from "@/lib/inventory-repository";
 import { resolveCustomOrderShareId, submitCustomOrder } from "@/lib/custom-orders";
 import type { Book } from "@/lib/types";
 
-const pageOptions = ["50 pages", "75 pages", "100 pages", "150 pages", "Custom amount"];
+const pageOptions = [
+  { label: "50 pages (mini books only)", value: "50 pages" },
+  { label: "75 pages", value: "75 pages" },
+  { label: "100 pages", value: "100 pages" }
+];
 const customizationOptions = [
   "Plain journal pages",
   "Lined pages",
@@ -18,8 +22,9 @@ const customizationOptions = [
   "Tabs/dividers",
   "Lace/ribbon",
   "Charms",
+  "Planner",
   "Name/personalization",
-  "Gift wrap",
+  "Would you like this item gift wrapped?",
   "Other request"
 ];
 
@@ -28,14 +33,10 @@ export default function CustomOrderPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [bookChoice, setBookChoice] = useState("own");
   const [pageCount, setPageCount] = useState("50 pages");
-  const [customPageCount, setCustomPageCount] = useState("");
   const [options, setOptions] = useState<string[]>([]);
   const [otherRequest, setOtherRequest] = useState("");
-  const [theme, setTheme] = useState("");
-  const [colors, setColors] = useState("");
   const [occasion, setOccasion] = useState("");
-  const [favoriteDetails, setFavoriteDetails] = useState("");
-  const [deadline, setDeadline] = useState("");
+  const [details, setDetails] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -80,19 +81,13 @@ export default function CustomOrderPage() {
     setError("");
     if (!name.trim()) return setError("Please enter your name.");
     if (!email.trim() && !phone.trim()) return setError("Please enter an email address or phone number.");
-    if (pageCount === "Custom amount" && (!Number(customPageCount) || Number(customPageCount) < 1)) {
-      return setError("Please enter the custom page amount.");
-    }
     if (!shareId) return setError("This custom order page is not connected to a shop yet.");
 
     setSubmitting(true);
     try {
       const notes = [
-        theme && `Theme: ${theme}`,
-        colors && `Colors: ${colors}`,
         occasion && `Occasion: ${occasion}`,
-        favoriteDetails && `Favorite details: ${favoriteDetails}`,
-        deadline && `Deadline: ${deadline}`,
+        details && `Details: ${details}`,
         otherRequest && `Other request: ${otherRequest}`
       ].filter(Boolean).join("\n");
       await submitCustomOrder({
@@ -103,7 +98,7 @@ export default function CustomOrderPage() {
         customer_email: email.trim(),
         preferred_contact: preferredContact,
         page_count: pageCount,
-        custom_page_count: pageCount === "Custom amount" ? Number(customPageCount) : null,
+        custom_page_count: null,
         customization_options: options,
         customer_notes: notes
       });
@@ -152,10 +147,9 @@ export default function CustomOrderPage() {
 
           <fieldset className="grid gap-3">
             <legend className="label">Number of pages</legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {pageOptions.map((option) => <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold" key={option}><input type="radio" name="page-count" checked={pageCount === option} onChange={() => setPageCount(option)} />{option}</label>)}
+            <div className="grid gap-2 sm:grid-cols-3">
+              {pageOptions.map((option) => <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold" key={option.value}><input type="radio" name="page-count" checked={pageCount === option.value} onChange={() => setPageCount(option.value)} />{option.label}</label>)}
             </div>
-            {pageCount === "Custom amount" ? <input className="field" type="number" min="1" placeholder="Custom number of pages" value={customPageCount} onChange={(event) => setCustomPageCount(event.target.value)} /> : null}
           </fieldset>
 
           <fieldset className="grid gap-3">
@@ -166,13 +160,10 @@ export default function CustomOrderPage() {
             {options.includes("Other request") ? <input className="field" placeholder="Describe your other request" value={otherRequest} onChange={(event) => setOtherRequest(event.target.value)} /> : null}
           </fieldset>
 
-          <fieldset className="grid gap-3 sm:grid-cols-2">
-            <legend className="label sm:col-span-2">Creative details</legend>
-            <input className="field" placeholder="Theme" value={theme} onChange={(event) => setTheme(event.target.value)} />
-            <input className="field" placeholder="Colors" value={colors} onChange={(event) => setColors(event.target.value)} />
+          <fieldset className="grid gap-3">
+            <legend className="label">Creative details</legend>
             <input className="field" placeholder="Occasion" value={occasion} onChange={(event) => setOccasion(event.target.value)} />
-            <input className="field" placeholder="Favorite details" value={favoriteDetails} onChange={(event) => setFavoriteDetails(event.target.value)} />
-            <label className="grid gap-2 sm:col-span-2"><span className="label">Deadline</span><input className="field" type="date" value={deadline} onChange={(event) => setDeadline(event.target.value)} /></label>
+            <textarea className="field min-h-28" placeholder="Additional notes or details" value={details} onChange={(event) => setDetails(event.target.value)} />
           </fieldset>
 
           <fieldset className="grid gap-3 sm:grid-cols-2">

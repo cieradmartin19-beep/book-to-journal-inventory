@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, WandSparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, Filter, Images, WandSparkles } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
 import { displayCategory } from "@/lib/categories";
 import { displayStatus } from "@/lib/statuses";
@@ -14,7 +14,7 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
-  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [categoryFilter, setCategoryFilter] = useState("All Categories");
 
   useEffect(() => {
     let mounted = true;
@@ -43,6 +43,15 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
     };
   }, [params.shareId]);
 
+  const publicCategories = useMemo(
+    () => Array.from(new Set(books.map((book) => displayCategory(book).name))).sort(),
+    [books]
+  );
+  const visibleBooks = useMemo(
+    () => books.filter((book) => categoryFilter === "All Categories" || displayCategory(book).name === categoryFilter),
+    [books, categoryFilter]
+  );
+
   return (
     <main className="mx-auto min-h-screen max-w-6xl px-3 py-4 sm:px-6 sm:py-5">
       <header className="mb-6 flex items-center justify-between gap-3">
@@ -68,20 +77,26 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
         </div>
       ) : books.length > 0 ? (
         <>
-          {Array.from(new Set(books.map((book) => displayCategory(book).name))).length > 1 ? (
-            <div className="panel mb-5 p-3 sm:max-w-xs">
-              <select className="field" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
-                <option>All</option>
-                {Array.from(new Set(books.map((book) => displayCategory(book).name))).sort().map((category) => (
+          <section className="panel mb-5 grid gap-3 p-4 sm:max-w-md">
+            <div className="flex items-center gap-2">
+              <Filter size={19} aria-hidden />
+              <h2 className="font-serif text-lg font-black">Filter the collection</h2>
+            </div>
+            <label className="grid gap-2">
+              <span className="label">Category</span>
+              <select aria-label="Filter public books by category" className="field" value={categoryFilter} onChange={(event) => setCategoryFilter(event.target.value)}>
+                <option>All Categories</option>
+                {publicCategories.map((category) => (
                   <option key={category}>{category}</option>
                 ))}
               </select>
-            </div>
-          ) : null}
+            </label>
+          </section>
           <section className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
-            {books.filter((book) => categoryFilter === "All" || displayCategory(book).name === categoryFilter).map((book) => {
+            {visibleBooks.map((book) => {
               const category = displayCategory(book);
               const status = displayStatus(book);
+              const photoCount = new Set((book.photo_urls ?? []).filter(Boolean)).size;
 
               return (
                 <article className="catalog-card min-w-0" key={book.id}>
@@ -93,11 +108,17 @@ export default function PublicSharePage({ params }: { params: { shareId: string 
                   sizes="(max-width: 768px) 50vw, 220px"
                   className="object-cover"
                 />
+                {photoCount > 1 ? (
+                  <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-sm border border-ink/20 bg-paper px-2 py-1 text-[11px] font-black uppercase tracking-wide text-ink shadow-sm">
+                    <Images size={14} aria-hidden />
+                    {photoCount} photos
+                  </span>
+                ) : null}
               </div>
               <div className="grid gap-2 p-3">
                 <p className="text-xs font-black uppercase tracking-wide text-marigold">{book.inventory_id}</p>
                 <h2 className="line-clamp-2 min-h-10 text-sm font-black leading-5">{book.title}</h2>
-                <p className="truncate text-xs font-semibold text-ink/60">{book.author || "Unknown author"}</p>
+                <p className="text-xs font-semibold text-ink/60">{book.published_year || "Year unavailable"}</p>
                 <div className="flex flex-wrap gap-1">
                   <span className="archive-label" style={{ backgroundColor: category.color }}>
                     {category.name}
