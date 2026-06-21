@@ -11,7 +11,8 @@ import type { Book } from "@/lib/types";
 const pageOptions = [
   { label: "50 pages (mini books only)", value: "50 pages" },
   { label: "75 pages", value: "75 pages" },
-  { label: "100 pages", value: "100 pages" }
+  { label: "100 pages", value: "100 pages" },
+  { label: "Planner", value: "Planner" }
 ];
 const customizationOptions = [
   "Plain journal pages",
@@ -22,9 +23,7 @@ const customizationOptions = [
   "Tabs/dividers",
   "Lace/ribbon",
   "Charms",
-  "Planner",
   "Name/personalization",
-  "Would you like this item gift wrapped?",
   "Other request"
 ];
 
@@ -36,6 +35,8 @@ export default function CustomOrderPage() {
   const [options, setOptions] = useState<string[]>([]);
   const [otherRequest, setOtherRequest] = useState("");
   const [occasion, setOccasion] = useState("");
+  const [giftWrapped, setGiftWrapped] = useState(false);
+  const [noteForJess, setNoteForJess] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -86,7 +87,8 @@ export default function CustomOrderPage() {
     try {
       const notes = [
         occasion && `Occasion: ${occasion}`,
-        otherRequest && `Other request: ${otherRequest}`
+        otherRequest && `Other request: ${otherRequest}`,
+        noteForJess && `Note or question for Jess: ${noteForJess}`
       ].filter(Boolean).join("\n");
       await submitCustomOrder({
         share_id: shareId,
@@ -97,7 +99,7 @@ export default function CustomOrderPage() {
         preferred_contact: preferredContact,
         page_count: pageCount,
         custom_page_count: null,
-        customization_options: options,
+        customization_options: giftWrapped ? [...options, "Gift wrapped"] : options,
         customer_notes: notes
       });
       setSubmitted(true);
@@ -145,7 +147,7 @@ export default function CustomOrderPage() {
 
           <fieldset className="grid gap-3">
             <legend className="label">Number of pages</legend>
-            <div className="grid gap-2 sm:grid-cols-3">
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {pageOptions.map((option) => <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold" key={option.value}><input type="radio" name="page-count" checked={pageCount === option.value} onChange={() => setPageCount(option.value)} />{option.label}</label>)}
             </div>
           </fieldset>
@@ -161,6 +163,24 @@ export default function CustomOrderPage() {
           <fieldset className="grid gap-3">
             <legend className="label">Creative details</legend>
             <input className="field" placeholder="Occasion" value={occasion} onChange={(event) => setOccasion(event.target.value)} />
+          </fieldset>
+
+          <fieldset className="grid gap-3">
+            <legend className="label">Gift wrap</legend>
+            <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold">
+              <input type="checkbox" checked={giftWrapped} onChange={(event) => setGiftWrapped(event.target.checked)} />
+              Would you like this item gift wrapped?
+            </label>
+          </fieldset>
+
+          <fieldset className="grid gap-3">
+            <legend className="label">Note for Jess</legend>
+            <textarea
+              className="field min-h-28 resize-y"
+              placeholder="Type Jess a note or ask a question"
+              value={noteForJess}
+              onChange={(event) => setNoteForJess(event.target.value)}
+            />
           </fieldset>
 
           <fieldset className="grid gap-3 sm:grid-cols-2">
