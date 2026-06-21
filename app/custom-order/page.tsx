@@ -36,7 +36,6 @@ export default function CustomOrderPage() {
   const [options, setOptions] = useState<string[]>([]);
   const [otherRequest, setOtherRequest] = useState("");
   const [occasion, setOccasion] = useState("");
-  const [details, setDetails] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -87,7 +86,6 @@ export default function CustomOrderPage() {
     try {
       const notes = [
         occasion && `Occasion: ${occasion}`,
-        details && `Details: ${details}`,
         otherRequest && `Other request: ${otherRequest}`
       ].filter(Boolean).join("\n");
       await submitCustomOrder({
@@ -163,7 +161,6 @@ export default function CustomOrderPage() {
           <fieldset className="grid gap-3">
             <legend className="label">Creative details</legend>
             <input className="field" placeholder="Occasion" value={occasion} onChange={(event) => setOccasion(event.target.value)} />
-            <textarea className="field min-h-28" placeholder="Additional notes or details" value={details} onChange={(event) => setDetails(event.target.value)} />
           </fieldset>
 
           <fieldset className="grid gap-3 sm:grid-cols-2">

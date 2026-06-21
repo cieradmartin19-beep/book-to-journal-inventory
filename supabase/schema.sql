@@ -521,6 +521,7 @@ alter table public.custom_orders add constraint custom_orders_preferred_contact_
 alter table public.custom_orders drop constraint if exists custom_orders_status_check;
 alter table public.custom_orders add constraint custom_orders_status_check check (status in ('New Request', 'Quote Sent', 'Accepted', 'In Progress', 'Completed', 'Declined'));
 alter table public.custom_orders drop constraint if exists custom_orders_page_count_check;
+-- Keep legacy values valid for existing requests; the current UI only offers 50, 75, and 100 pages.
 alter table public.custom_orders add constraint custom_orders_page_count_check check (page_count in ('50 pages', '75 pages', '100 pages', '150 pages', 'Custom amount'));
 alter table public.custom_orders drop constraint if exists custom_orders_options_array_check;
 alter table public.custom_orders add constraint custom_orders_options_array_check check (jsonb_typeof(customization_options) = 'array');
