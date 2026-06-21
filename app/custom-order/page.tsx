@@ -10,8 +10,8 @@ import type { Book } from "@/lib/types";
 
 const pageOptions = [
   { label: "50 pages (mini books only)", value: "50 pages" },
-  { label: "75 pages", value: "75 pages" },
-  { label: "100 pages", value: "100 pages" },
+  { label: "75 pages (standard)", value: "75 pages" },
+  { label: "100 pages (deluxe)", value: "100 pages" },
   { label: "Planner", value: "Planner" }
 ];
 const customizationOptions = [
