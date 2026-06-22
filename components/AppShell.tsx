@@ -1,15 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { ClipboardList, Home, LibraryBig, ListChecks, LogOut, Plus, Settings, UserCircle } from "lucide-react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { PublicWelcome } from "@/components/PublicWelcome";
 import { getCurrentUser, signOut, userDisplayName } from "@/lib/auth";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
 
@@ -48,6 +49,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       data.subscription?.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!authLoading && isSupabaseConfigured && !user) router.replace("/login");
+  }, [authLoading, router, user]);
 
   async function handleSignOut() {
     await signOut();
@@ -95,7 +100,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         ) : !isSupabaseConfigured || user ? (
           children
-        ) : <PublicWelcome />}
+        ) : (
+          <div className="panel grid min-h-96 place-items-center p-8 text-center">
+            <div>
+              <p className="font-serif text-2xl font-black">The Paper Curio</p>
+              <p className="mt-2 font-semibold text-ink/65">Taking you to sign in...</p>
+            </div>
+          </div>
+        )}
       </main>
       {isSupabaseConfigured && !user ? null : (
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t-2 border-gold/45 bg-ink/95 px-3 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur sm:hidden">
