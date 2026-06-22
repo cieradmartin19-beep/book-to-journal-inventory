@@ -68,7 +68,7 @@ export function PublicWelcome({ shareId }: { shareId?: string }) {
         <section className="border-b border-gold/25 px-5 py-10 sm:px-8 sm:py-14">
           <div className="mx-auto max-w-3xl text-center">
             <BookHeart className="mx-auto text-gold" size={34} aria-hidden />
-            <h2 className="mt-4 font-serif text-2xl font-black text-ink sm:text-3xl">About The Paper Curio Journals &amp; Specialty Books</h2>
+            <h2 className="mt-4 whitespace-nowrap font-serif text-lg font-black text-ink sm:text-2xl lg:text-3xl">Our Journals &amp; Specialty Books</h2>
             <div className="mt-5 space-y-4 text-base font-medium leading-8 text-ink/75">
               <p>Each journal is handcrafted from a vintage children&apos;s book that has been loved and enjoyed over the years. Because these books are vintage, signs of age, previous ownership, and wear may be present. I do my best to preserve the original story while carefully cleaning up excessive writing or markings whenever possible.</p>
               <p className="font-bold text-marigold">Every journal is unique, and no two journals will be exactly alike.</p>
