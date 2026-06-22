@@ -35,7 +35,19 @@ export async function getCurrentUser() {
 
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  return data.session?.user ?? null;
+  const session = data.session;
+  if (!session) return null;
+
+  const verified = await supabase.auth.getUser();
+  if (!verified.error && verified.data.user) return verified.data.user;
+
+  const refreshed = await supabase.auth.refreshSession();
+  if (refreshed.error || !refreshed.data.session) {
+    await supabase.auth.signOut({ scope: "local" });
+    return null;
+  }
+
+  return refreshed.data.session.user;
 }
 
 export async function requireSignedInUser() {

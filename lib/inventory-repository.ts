@@ -26,7 +26,11 @@ export type PersistenceStatus = {
 export async function ensureSupabaseUser() {
   const user = await requireSignedInUser();
   if (!user) return null;
-  await ensureProfile(user.id);
+  try {
+    await ensureProfile(user.id);
+  } catch {
+    // Profile repair must not block inventory reads for an authenticated owner.
+  }
   return user;
 }
 

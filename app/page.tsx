@@ -10,6 +10,12 @@ import { fetchBooks, getPublicSharePath } from "@/lib/inventory-repository";
 import { fetchStatuses } from "@/lib/statuses";
 import type { Book, CustomStatus } from "@/lib/types";
 
+function readableLoadError(value: unknown) {
+  if (value instanceof Error) return value.message;
+  if (value && typeof value === "object" && "message" in value && typeof value.message === "string") return value.message;
+  return "Your dashboard could not be loaded.";
+}
+
 export default function HomePage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [statuses, setStatuses] = useState<CustomStatus[]>([]);
@@ -25,7 +31,7 @@ export default function HomePage() {
       .then(([booksResult, statusesResult, shareResult]) => {
         if (!active) return;
         if (booksResult.status === "fulfilled") setBooks(booksResult.value);
-        else setError(booksResult.reason instanceof Error ? booksResult.reason.message : "Your dashboard could not be loaded.");
+        else setError(readableLoadError(booksResult.reason));
         if (statusesResult.status === "fulfilled") setStatuses(statusesResult.value);
         if (shareResult.status === "fulfilled") setShareUrl(`${window.location.origin}${shareResult.value}`);
       })
