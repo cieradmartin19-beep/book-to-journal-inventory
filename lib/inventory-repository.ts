@@ -137,10 +137,10 @@ export async function fetchPublicBooks(shareId: string): Promise<Book[]> {
 }
 
 export async function getPublicSharePath() {
-  if (!isSupabaseConfigured) return "/share/demo";
+  if (!isSupabaseConfigured) return "/welcome/demo";
 
   const user = await ensureSupabaseUser();
-  if (!user) return "/share/demo";
+  if (!user) return "/welcome/demo";
   const shareId = await fetchPublicShareId(user.id);
-  return `/share/${shareId}`;
+  return `/welcome/${shareId}`;
 }

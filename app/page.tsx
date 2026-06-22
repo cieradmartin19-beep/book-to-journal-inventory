@@ -17,7 +17,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
-  const shareId = shareUrl.includes("/share/") ? shareUrl.split("/share/")[1] : "";
+  const shareId = shareUrl.match(/\/(?:share|welcome)\/([^/?#]+)/)?.[1] ?? "";
 
   useEffect(() => {
     let active = true;

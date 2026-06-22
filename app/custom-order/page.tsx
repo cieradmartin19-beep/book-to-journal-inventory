@@ -14,26 +14,11 @@ const pageOptions = [
   { label: "100 pages (deluxe)", value: "100 pages" },
   { label: "Planner", value: "Planner" }
 ];
-const customizationOptions = [
-  "Plain journal pages",
-  "Lined pages",
-  "Mixed paper pack",
-  "Vintage paper",
-  "Pockets",
-  "Tabs/dividers",
-  "Lace/ribbon",
-  "Charms",
-  "Name/personalization",
-  "Other request"
-];
-
 export default function CustomOrderPage() {
   const [shareId, setShareId] = useState("");
   const [books, setBooks] = useState<Book[]>([]);
   const [bookChoice, setBookChoice] = useState("own");
   const [pageCount, setPageCount] = useState("50 pages");
-  const [options, setOptions] = useState<string[]>([]);
-  const [otherRequest, setOtherRequest] = useState("");
   const [occasion, setOccasion] = useState("");
   const [giftWrapped, setGiftWrapped] = useState(false);
   const [noteForJess, setNoteForJess] = useState("");
@@ -71,12 +56,6 @@ export default function CustomOrderPage() {
 
   const selectedBook = useMemo(() => books.find((book) => book.id === bookChoice), [bookChoice, books]);
 
-  function toggleOption(option: string) {
-    setOptions((current) => current.includes(option)
-      ? current.filter((item) => item !== option)
-      : [...current, option]);
-  }
-
   async function submit() {
     setError("");
     if (!name.trim()) return setError("Please enter your name.");
@@ -87,7 +66,6 @@ export default function CustomOrderPage() {
     try {
       const notes = [
         occasion && `Occasion: ${occasion}`,
-        otherRequest && `Other request: ${otherRequest}`,
         noteForJess && `Note or question for Jess: ${noteForJess}`
       ].filter(Boolean).join("\n");
       await submitCustomOrder({
@@ -99,7 +77,7 @@ export default function CustomOrderPage() {
         preferred_contact: preferredContact,
         page_count: pageCount,
         custom_page_count: null,
-        customization_options: giftWrapped ? [...options, "Gift wrapped"] : options,
+        customization_options: giftWrapped ? ["Gift wrapped"] : [],
         customer_notes: notes
       });
       setSubmitted(true);
@@ -150,14 +128,6 @@ export default function CustomOrderPage() {
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {pageOptions.map((option) => <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold" key={option.value}><input type="radio" name="page-count" checked={pageCount === option.value} onChange={() => setPageCount(option.value)} />{option.label}</label>)}
             </div>
-          </fieldset>
-
-          <fieldset className="grid gap-3">
-            <legend className="label">Customization options</legend>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {customizationOptions.map((option) => <label className="flex min-h-12 cursor-pointer items-center gap-2 rounded-lg border-2 border-ink/10 bg-white p-3 text-sm font-bold" key={option}><input type="checkbox" checked={options.includes(option)} onChange={() => toggleOption(option)} />{option}</label>)}
-            </div>
-            {options.includes("Other request") ? <input className="field" placeholder="Describe your other request" value={otherRequest} onChange={(event) => setOtherRequest(event.target.value)} /> : null}
           </fieldset>
 
           <fieldset className="grid gap-3">
