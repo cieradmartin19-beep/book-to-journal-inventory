@@ -129,14 +129,14 @@ export function PublicWelcome({ shareId }: { shareId?: string }) {
         <section className="grid gap-8 border-b border-gold/25 px-5 py-10 md:grid-cols-2 md:divide-x md:divide-gold/25 sm:px-8 sm:py-14">
           <article className="md:pr-8">
             <LibraryBig className="text-marigold" size={30} aria-hidden />
-            <h2 className="mt-3 font-serif text-2xl font-black">Vintage Book Information</h2>
+            <h2 className="mt-3 font-serif text-2xl font-black text-ink">Vintage Book Information</h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-ink/70">Because these journals and keepsake books are created from authentic vintage books:</p>
             <DetailList items={["Original story pages are preserved whenever possible.", "Books may show signs of age, wear, or previous ownership.", "Some books may contain inscriptions, names, or handwritten notes from previous owners.", "Every effort is made to maintain the charm and character of the original book while creating a functional keepsake."]} />
           </article>
 
           <article className="md:pl-8">
             <Gift className="text-marigold" size={30} aria-hidden />
-            <h2 className="mt-3 font-serif text-2xl font-black">Custom Orders</h2>
+            <h2 className="mt-3 font-serif text-2xl font-black text-ink">Custom Orders</h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-ink/70">Custom orders are available based on current book inventory.</p>
             <p className="mt-5 text-xs font-black uppercase tracking-wide text-marigold">Customers may choose</p>
             <DetailList items={["Available book title", "Journal size", "Specialty book options"]} />
