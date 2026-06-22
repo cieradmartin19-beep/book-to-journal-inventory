@@ -192,6 +192,14 @@ async function fetchBookCategoryAssignments(bookIds: string[]) {
   return (data ?? []) as CategoryAssignmentRow[];
 }
 
+async function fetchOptionalBookCategoryAssignments(bookIds: string[]) {
+  try {
+    return await fetchBookCategoryAssignments(bookIds);
+  } catch {
+    return [];
+  }
+}
+
 export async function fetchSupabaseBooks(userId: string) {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
@@ -213,7 +221,7 @@ export async function fetchSupabaseBooks(userId: string) {
   }
 
   const books = (data as SupabaseBookRow[]).map((book) => book);
-  const assignments = await fetchBookCategoryAssignments(books.map((book) => book.id));
+  const assignments = await fetchOptionalBookCategoryAssignments(books.map((book) => book.id));
   return books.map((book) => withPhotoUrls(book, assignments));
 }
 
@@ -239,7 +247,7 @@ export async function fetchSupabaseBook(id: string, userId: string) {
     return withPhotoUrls(fallback.data as SupabaseBookRow);
   }
 
-  const assignments = await fetchBookCategoryAssignments([id]);
+  const assignments = await fetchOptionalBookCategoryAssignments([id]);
   return withPhotoUrls(data as SupabaseBookRow, assignments);
 }
 
@@ -388,12 +396,7 @@ export async function fetchPublicSupabaseBooks(shareId: string) {
 
   if (error) throw error;
   const books = data as PublicSupabaseBookRow[];
-  let assignments: CategoryAssignmentRow[] = [];
-  try {
-    assignments = await fetchBookCategoryAssignments(books.map((book) => book.id));
-  } catch {
-    // Public visitors may not read the owner-scoped join table under RLS.
-  }
+  const assignments = await fetchOptionalBookCategoryAssignments(books.map((book) => book.id));
   return books.map((book) => withPublicPhotoUrls(book, assignments));
 }
 
