@@ -108,19 +108,21 @@ export function PublicWelcome({ shareId }: { shareId?: string }) {
 
         <section className="border-b border-gold/25 bg-white/35 px-5 py-10 sm:px-8 sm:py-14">
           <div>
-            <Feather className="text-marigold" size={32} aria-hidden />
-            <h2 className="mt-3 font-serif text-3xl font-black">Specialty Books</h2>
-            <p className="mt-3 max-w-3xl font-semibold leading-7 text-ink/70">Many vintage books can also be transformed into specialty keepsake books using premium paper.</p>
-            <p className="mt-2 font-semibold text-ink/70">Available options may include:</p>
-            <div className="mt-7 grid gap-8 md:grid-cols-2">
-              <div>
-                <h3 className="font-serif text-xl font-black">Signature Books</h3>
+            <div className="mx-auto max-w-3xl text-center">
+              <Feather className="mx-auto text-marigold" size={32} aria-hidden />
+              <h2 className="mt-3 font-serif text-3xl font-black text-ink">Specialty Books</h2>
+              <p className="mt-3 font-semibold leading-7 text-ink/70">Many vintage books can also be transformed into specialty keepsake books using premium paper.</p>
+              <p className="mt-2 font-semibold text-ink/70">Available options may include:</p>
+            </div>
+            <div className="mt-8 grid gap-0 divide-y divide-gold/30 md:grid-cols-2 md:divide-x md:divide-y-0">
+              <div className="pb-8 md:pb-0 md:pr-8">
+                <h3 className="font-serif text-xl font-black text-ink">Signature Books</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-ink/70">Perfect for collecting messages, signatures, memories, and well wishes from family and friends.</p>
                 <p className="mt-4 text-xs font-black uppercase tracking-wide text-marigold">Popular for</p>
                 <DetailList items={["Baby Showers", "Bridal Showers", "Weddings", "Retirement Celebrations", "Birthday Parties", "Family Reunions"]} />
               </div>
-              <div>
-                <h3 className="font-serif text-xl font-black">Teacher Memory Books</h3>
+              <div className="pt-8 md:pl-8 md:pt-0">
+                <h3 className="font-serif text-xl font-black text-ink">Teacher Memory Books</h3>
                 <p className="mt-2 text-sm font-semibold leading-6 text-ink/70">A meaningful keepsake for students, teachers, and families.</p>
                 <p className="mt-4 text-xs font-black uppercase tracking-wide text-marigold">Perfect for</p>
                 <DetailList items={["End of School Year Gifts", "Teacher Appreciation Gifts", "School Milestones", "Student Messages and Memories"]} />
