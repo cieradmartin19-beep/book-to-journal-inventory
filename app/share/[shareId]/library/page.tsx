@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ArrowLeft, Filter, Images, WandSparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { BrandLogo } from "@/components/BrandLogo";
-import { displayCategories, displayCategory } from "@/lib/categories";
+import { displayCategories } from "@/lib/categories";
 import { displayStatus } from "@/lib/statuses";
 import { fetchPublicBooks } from "@/lib/inventory-repository";
 import type { Book } from "@/lib/types";

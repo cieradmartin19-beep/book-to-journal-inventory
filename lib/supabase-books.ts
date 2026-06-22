@@ -388,7 +388,12 @@ export async function fetchPublicSupabaseBooks(shareId: string) {
 
   if (error) throw error;
   const books = data as PublicSupabaseBookRow[];
-  const assignments = await fetchBookCategoryAssignments(books.map((book) => book.id));
+  let assignments: CategoryAssignmentRow[] = [];
+  try {
+    assignments = await fetchBookCategoryAssignments(books.map((book) => book.id));
+  } catch {
+    // Public visitors may not read the owner-scoped join table under RLS.
+  }
   return books.map((book) => withPublicPhotoUrls(book, assignments));
 }
 
