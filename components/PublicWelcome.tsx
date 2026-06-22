@@ -81,7 +81,10 @@ export function PublicWelcome({ shareId }: { shareId?: string }) {
             <BookOpen className="mx-auto text-gold" size={34} aria-hidden />
             <h2 className="mt-4 font-serif text-2xl font-black text-ink sm:text-3xl">What You&apos;ll Find Inside</h2>
             <p className="mt-4 font-semibold text-ink/75">All journals include:</p>
-            <div className="mx-auto max-w-md text-left"><DetailList items={["Original story pages", "A combination of lined and blank journal pages"]} /></div>
+            <div className="mx-auto mt-4 grid max-w-md gap-2 text-center text-sm font-semibold text-ink/75">
+              <p>Original story pages</p>
+              <p>A combination of lined and blank journal pages</p>
+            </div>
             <p className="mt-5 leading-7 text-ink/65">Original story pages are shown throughout the journal, allowing readers to revisit the story while enjoying a functional writing journal.</p>
           </div>
         </section>
