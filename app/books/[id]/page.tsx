@@ -6,7 +6,7 @@ import { ArrowLeft, Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
-import { createCategory, displayCategory, fetchCategories } from "@/lib/categories";
+import { createCategory, displayCategories, fetchCategories } from "@/lib/categories";
 import { createStatus, displayStatus, fetchStatuses } from "@/lib/statuses";
 import { fetchBook, updateBook } from "@/lib/inventory-repository";
 import { calculateProfit } from "@/lib/mock-data";
@@ -88,7 +88,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
 
   const profit = calculateProfit(draft.cost, draft.sold_price);
   const galleryUrls = [...(draft.photo_urls ?? []), ...pendingPhotoUrls];
-  const category = displayCategory(draft);
+  const displayedCategories = displayCategories(draft);
   const customStatus = displayStatus(draft);
 
   async function createCategoryFromForm() {
@@ -98,6 +98,7 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
     setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name)));
     setDraft((current) => current ? {
       ...current,
+      category_ids: [created.id],
       category_id: created.id,
       category: created.name,
       category_color: created.color
@@ -143,13 +144,16 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
                   {customStatus.name}
                 </span>
               </p>
-              <p>
-                <span
-                  className="archive-label"
-                  style={{ backgroundColor: category.color }}
-                >
-                  {category.name}
-                </span>
+              <p className="flex flex-wrap gap-1">
+                {displayedCategories.map((category) => (
+                  <span
+                    key={`${book.id}-${category.name}`}
+                    className="archive-label"
+                    style={{ backgroundColor: category.color }}
+                  >
+                    {category.name}
+                  </span>
+                ))}
               </p>
               {draft.isbn ? <p className="break-all">ISBN {draft.isbn}</p> : null}
             </div>

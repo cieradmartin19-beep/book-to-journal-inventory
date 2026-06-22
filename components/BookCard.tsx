@@ -3,13 +3,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
-import { displayCategory } from "@/lib/categories";
+import { displayCategories } from "@/lib/categories";
 import { displayStatus } from "@/lib/statuses";
 import type { Book } from "@/lib/types";
 import { formatMoney } from "@/lib/stats";
 
 export function BookCard({ book }: { book: Book }) {
-  const category = displayCategory(book);
+  const categories = displayCategories(book);
   const status = displayStatus(book);
 
   return (
@@ -35,9 +35,11 @@ export function BookCard({ book }: { book: Book }) {
           <p className="truncate text-xs font-semibold text-ink/60">{book.author || "Unknown author"}</p>
         </div>
         <div className="flex flex-wrap gap-1">
-          <span className="archive-label" style={{ backgroundColor: category.color }}>
-            {category.name}
-          </span>
+          {categories.map((category) => (
+            <span className="archive-label" key={`${book.id}-${category.name}`} style={{ backgroundColor: category.color }}>
+              {category.name}
+            </span>
+          ))}
           <span className="archive-label" style={{ backgroundColor: status.color }}>
             {status.name}
           </span>

@@ -56,8 +56,13 @@ export default function LibraryPage() {
     const statusKey = book.status_id || `legacy:${book.status || "Inventory"}`;
     const selectedCategoryName = categoryOptions.find((item) => item.id === categoryId)?.name;
     const selectedStatusName = statusOptions.find((item) => item.id === statusId)?.name;
+    const matchesCategory = categoryId === "all"
+      || categoryKey === categoryId
+      || book.category === selectedCategoryName
+      || (book.category_ids ?? []).includes(categoryOptions.find((item) => item.id === categoryId)?.id || "")
+      || (book.category_names ?? []).includes(selectedCategoryName || "");
     return text.includes(query.trim().toLowerCase())
-      && (categoryId === "all" || categoryKey === categoryId || book.category === selectedCategoryName)
+      && matchesCategory
       && (statusId === "all" || statusKey === statusId || book.status === selectedStatusName);
   }), [books, categoryId, categoryOptions, query, statusId, statusOptions]);
 

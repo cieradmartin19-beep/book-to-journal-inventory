@@ -17,6 +17,18 @@ function normalizeBook(book: Partial<Book>, index: number): Book {
   const parsed = parseInventoryId(book.inventory_id || `BK-${String(index + 1).padStart(3, "0")}`);
   const prefix = sanitizePrefix(book.inventory_prefix || parsed.prefix);
   const number = book.inventory_number || parsed.number || index + 1;
+  const categoryIds = Array.isArray(book.category_ids)
+    ? book.category_ids.filter(Boolean)
+    : book.category_id
+      ? [book.category_id]
+      : [];
+  const categoryNames = Array.isArray(book.category_names)
+    ? book.category_names.filter(Boolean)
+    : [];
+  const categoryColors = Array.isArray(book.category_colors)
+    ? book.category_colors.filter(Boolean)
+    : [];
+  const primaryCategory = categoryNames[0] || book.category || "Uncategorized";
 
   return {
     id: book.id || crypto.randomUUID(),
@@ -31,9 +43,12 @@ function normalizeBook(book: Partial<Book>, index: number): Book {
     isbn: book.isbn || "",
     cover_url: book.cover_url || "/placeholder-cover.svg",
     photo_urls: Array.isArray(book.photo_urls) ? book.photo_urls.filter(Boolean) : [],
-    category_id: book.category_id ?? null,
-    category: book.category || "Uncategorized",
-    category_color: book.category_color ?? null,
+    category_id: categoryIds[0] ?? book.category_id ?? null,
+    category: primaryCategory,
+    category_color: book.category_color ?? categoryColors[0] ?? null,
+    category_ids: categoryIds,
+    category_names: categoryNames.length > 0 ? categoryNames : primaryCategory !== "Uncategorized" ? [primaryCategory] : [],
+    category_colors: categoryColors,
     book_type: (book.book_type || "Regular Book") as BookType,
     condition: book.condition || "Good",
     cost: Number(book.cost || 0),

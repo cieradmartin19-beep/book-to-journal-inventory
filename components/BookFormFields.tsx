@@ -33,6 +33,8 @@ export function BookFormFields({
 
   const savedPhotoUrls = value.photo_urls ?? [];
   const allPhotoUrls = [...savedPhotoUrls, ...pendingPhotoUrls];
+  const selectedCategoryIds = (value.category_ids ?? (value.category_id ? [value.category_id] : [])).filter(Boolean);
+  const hasSelectedCategories = selectedCategoryIds.length > 0;
   const legacyCategoryValue = !value.category_id && value.category && value.category !== "Uncategorized" ? `legacy:${value.category}` : "";
   const matchedCategory = categories.find((item) => item.name === value.category);
   const categorySelectValue = value.category_id ?? matchedCategory?.id ?? legacyCategoryValue;
@@ -143,36 +145,60 @@ export function BookFormFields({
           )}
         </div>
       ) : null}
-      <label className="grid gap-2">
-        <span className="label">Category</span>
-        <select
-          aria-label="Category"
-          className="field"
-          value={categorySelectValue}
-          onChange={(event) => {
-            if (event.target.value === "__new") {
-              onCreateCategory?.();
-              return;
-            }
-            if (event.target.value.startsWith("legacy:")) return;
-
-            const category = categories.find((item) => item.id === event.target.value);
-            onChange({
-              ...value,
-              category_id: category?.id ?? null,
-              category: category?.name ?? "Uncategorized",
-              category_color: category?.color ?? null
-            });
-          }}
-        >
-          <option value="">Uncategorized</option>
-          {legacyCategoryValue ? <option value={legacyCategoryValue}>{value.category}</option> : null}
-          {categories.map((category) => (
-            <option key={category.id} value={category.id}>{category.name}</option>
-          ))}
-          <option value="__new">+ New Category</option>
-        </select>
-      </label>
+      <div className="grid gap-2">
+        <span className="label">Categories</span>
+        <div className="grid gap-2 rounded-lg border-2 border-ink/10 bg-white p-3">
+          <label className="flex items-center gap-2 rounded-lg border border-ink/10 bg-paper px-3 py-2 text-sm font-bold">
+            <input
+              type="checkbox"
+              checked={!hasSelectedCategories}
+              onChange={() => {
+                if (!hasSelectedCategories) return;
+                onChange({
+                  ...value,
+                  category_ids: [],
+                  category_id: null,
+                  category: "Uncategorized",
+                  category_color: null
+                });
+              }}
+            />
+            Uncategorized
+          </label>
+          {categories.map((category) => {
+            const checked = selectedCategoryIds.includes(category.id);
+            return (
+              <label key={category.id} className="flex items-center gap-2 rounded-lg border border-ink/10 bg-paper px-3 py-2 text-sm font-bold">
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(event) => {
+                    const nextIds = new Set(selectedCategoryIds);
+                    if (event.target.checked) {
+                      nextIds.add(category.id);
+                    } else {
+                      nextIds.delete(category.id);
+                    }
+                    const nextCategoryIds = Array.from(nextIds);
+                    const firstSelected = categories.find((item) => item.id === nextCategoryIds[0]);
+                    onChange({
+                      ...value,
+                      category_ids: nextCategoryIds,
+                      category_id: firstSelected?.id ?? null,
+                      category: firstSelected?.name ?? "Uncategorized",
+                      category_color: firstSelected?.color ?? null
+                    });
+                  }}
+                />
+                <span>{category.name}</span>
+              </label>
+            );
+          })}
+          <button className="btn-secondary w-fit" type="button" onClick={() => onCreateCategory?.()}>
+            + New Category
+          </button>
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="grid gap-2">
           <span className="label">Condition</span>

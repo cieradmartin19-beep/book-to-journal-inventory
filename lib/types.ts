@@ -38,6 +38,9 @@ export type Book = {
   category_id?: string | null;
   category: string;
   category_color?: string | null;
+  category_ids?: string[];
+  category_names?: string[];
+  category_colors?: string[];
   status_id?: string | null;
   status_color?: string | null;
   book_type: BookType;

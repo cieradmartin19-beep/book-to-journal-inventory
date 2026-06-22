@@ -166,7 +166,29 @@ export async function deleteCategory(id: string) {
   if (error) throw error;
 }
 
-export function displayCategory(book: Pick<Category, "name" | "color"> | { category?: string; category_color?: string | null }) {
+export function displayCategory(book: Pick<Category, "name" | "color"> | { category?: string; category_color?: string | null; category_names?: string[]; category_colors?: string[] }) {
   if ("name" in book) return { name: book.name || "Uncategorized", color: book.color || "#E9E1D2" };
-  return { name: book.category || "Uncategorized", color: book.category_color || "#E9E1D2" };
+  const names = book.category_names?.filter(Boolean) ?? [];
+  const colors = book.category_colors?.filter(Boolean) ?? [];
+  return {
+    name: names[0] || book.category || "Uncategorized",
+    color: colors[0] || book.category_color || "#E9E1D2"
+  };
+}
+
+export function displayCategories(book: { category_names?: string[]; category_colors?: string[]; category?: string; category_color?: string | null }) {
+  const names = (book.category_names ?? []).filter(Boolean);
+  const colors = (book.category_colors ?? []).filter(Boolean);
+  if (names.length > 0) {
+    return names.map((name, index) => ({
+      name,
+      color: colors[index] || "#E9E1D2"
+    }));
+  }
+
+  if (book.category && book.category !== "Uncategorized") {
+    return [{ name: book.category, color: book.category_color || "#E9E1D2" }];
+  }
+
+  return [{ name: "Uncategorized", color: "#E9E1D2" }];
 }

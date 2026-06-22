@@ -36,6 +36,12 @@ type PublicSupabaseBookRow = Pick<
   photo_urls?: string[];
 };
 
+type CategoryAssignmentRow = {
+  book_id: string;
+  category_id: string;
+  categories: { name: string; color: string }[];
+};
+
 function isCustomFieldSchemaError(error: { code?: string; message?: string } | null) {
   return Boolean(error && (
     error.code === "42703"
@@ -49,26 +55,47 @@ function readableSupabaseError(action: string, error: { message?: string; detail
   return new Error(`${action} failed. ${detail || "Supabase did not provide an error message."}`);
 }
 
-function withPhotoUrls(book: SupabaseBookRow): Book {
+function withPhotoUrls(book: SupabaseBookRow, categoryAssignments: CategoryAssignmentRow[] = []): Book {
   const photoUrls = [...(book.book_photos ?? [])]
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((photo) => photo.url)
     .filter(Boolean);
   const { book_photos, ...rest } = book;
-  const category = book.categories;
   const status = book.statuses;
+  const bookAssignments = categoryAssignments.filter((assignment) => assignment.book_id === book.id);
+  const categoryIds = bookAssignments.map((assignment) => assignment.category_id).filter(Boolean);
+  const categoryNames = bookAssignments
+    .map((assignment) => assignment.categories?.[0]?.name)
+    .filter(Boolean) as string[];
+  const categoryColors = bookAssignments
+    .map((assignment) => assignment.categories?.[0]?.color)
+    .filter(Boolean) as string[];
+  const primaryCategory = categoryNames[0] || book.category || "Uncategorized";
+  const primaryColor = categoryColors[0] || book.category_color || null;
 
   return {
     ...rest,
-    category: category?.name || book.category || "Uncategorized",
-    category_color: category?.color || book.category_color || null,
+    category: primaryCategory,
+    category_color: primaryColor,
+    category_ids: categoryIds.length > 0 ? categoryIds : book.category_id ? [book.category_id] : [],
+    category_names: categoryNames.length > 0 ? categoryNames : primaryCategory !== "Uncategorized" ? [primaryCategory] : [],
+    category_colors: categoryColors.length > 0 ? categoryColors : primaryColor ? [primaryColor] : [],
     status: status?.name || book.status || "Inventory",
     status_color: status?.color || book.status_color || null,
     photo_urls: photoUrls
   } as Book;
 }
 
-function withPublicPhotoUrls(book: PublicSupabaseBookRow): Book {
+function withPublicPhotoUrls(book: PublicSupabaseBookRow, categoryAssignments: CategoryAssignmentRow[] = []): Book {
+  const bookAssignments = categoryAssignments.filter((assignment) => assignment.book_id === book.id);
+  const categoryIds = bookAssignments.map((assignment) => assignment.category_id).filter(Boolean);
+  const categoryNames = bookAssignments
+    .map((assignment) => assignment.categories?.[0]?.name)
+    .filter(Boolean) as string[];
+  const categoryColors = bookAssignments
+    .map((assignment) => assignment.categories?.[0]?.color)
+    .filter(Boolean) as string[];
+
   return {
     ...book,
     user_id: null,
@@ -76,7 +103,10 @@ function withPublicPhotoUrls(book: PublicSupabaseBookRow): Book {
     cost: 0,
     sold_price: 0,
     profit: 0,
-    notes: ""
+    notes: "",
+    category_ids: categoryIds.length > 0 ? categoryIds : book.category_id ? [book.category_id] : [],
+    category_names: categoryNames.length > 0 ? categoryNames : book.category && book.category !== "Uncategorized" ? [book.category] : [],
+    category_colors: categoryColors.length > 0 ? categoryColors : book.category_color ? [book.category_color] : []
   };
 }
 
@@ -149,13 +179,26 @@ async function replaceSupabaseBookPhotos(bookId: string, userId: string, urls: s
   return nextUrls;
 }
 
+async function fetchBookCategoryAssignments(bookIds: string[]) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase || bookIds.length === 0) return [];
+
+  const { data, error } = await supabase
+    .from("book_categories")
+    .select("book_id, category_id, categories(name, color)")
+    .in("book_id", bookIds);
+
+  if (error) throw error;
+  return (data ?? []) as CategoryAssignmentRow[];
+}
+
 export async function fetchSupabaseBooks(userId: string) {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
 
   const { data, error } = await supabase
     .from("books")
-    .select("*, categories(name, color), statuses(name, color, sort_order), book_photos(url, sort_order)")
+    .select("*, statuses(name, color, sort_order), book_photos(url, sort_order)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
@@ -166,10 +209,12 @@ export async function fetchSupabaseBooks(userId: string) {
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (fallback.error) throw fallback.error;
-    return (fallback.data as SupabaseBookRow[]).map(withPhotoUrls);
+    return (fallback.data as SupabaseBookRow[]).map((book) => withPhotoUrls(book));
   }
 
-  return (data as SupabaseBookRow[]).map(withPhotoUrls);
+  const books = (data as SupabaseBookRow[]).map((book) => book);
+  const assignments = await fetchBookCategoryAssignments(books.map((book) => book.id));
+  return books.map((book) => withPhotoUrls(book, assignments));
 }
 
 export async function fetchSupabaseBook(id: string, userId: string) {
@@ -178,7 +223,7 @@ export async function fetchSupabaseBook(id: string, userId: string) {
 
   const { data, error } = await supabase
     .from("books")
-    .select("*, categories(name, color), statuses(name, color, sort_order), book_photos(url, sort_order)")
+    .select("*, statuses(name, color, sort_order), book_photos(url, sort_order)")
     .eq("id", id)
     .eq("user_id", userId)
     .single();
@@ -194,13 +239,42 @@ export async function fetchSupabaseBook(id: string, userId: string) {
     return withPhotoUrls(fallback.data as SupabaseBookRow);
   }
 
-  return withPhotoUrls(data as SupabaseBookRow);
+  const assignments = await fetchBookCategoryAssignments([id]);
+  return withPhotoUrls(data as SupabaseBookRow, assignments);
+}
+
+async function syncBookCategories(bookId: string, userId: string, categoryIds: string[]) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return;
+
+  const nextIds = Array.from(new Set((categoryIds || []).filter(Boolean)));
+  const { error: deleteError } = await supabase
+    .from("book_categories")
+    .delete()
+    .eq("book_id", bookId)
+    .eq("user_id", userId);
+
+  if (deleteError) throw deleteError;
+
+  if (nextIds.length === 0) return;
+
+  const { error: insertError } = await supabase
+    .from("book_categories")
+    .insert(nextIds.map((categoryId) => ({
+      book_id: bookId,
+      category_id: categoryId,
+      user_id: userId
+    })));
+
+  if (insertError) throw insertError;
 }
 
 export async function insertSupabaseBook(book: BookDraft, userId: string, inventoryPrefix = "BK", photoFiles: File[] = []) {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
 
+  const selectedCategoryIds = (book.category_ids ?? (book.category_id ? [book.category_id] : [])).filter(Boolean);
+  const firstCategoryId = selectedCategoryIds[0] || book.category_id || null;
   const payload = {
       user_id: userId,
       inventory_prefix: inventoryPrefix,
@@ -210,7 +284,7 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
       published_year: book.published_year,
       isbn: book.isbn,
       cover_url: book.cover_url,
-      category_id: book.category_id || null,
+      category_id: firstCategoryId,
       category: book.category,
       book_type: book.book_type,
       condition: book.condition,
@@ -232,6 +306,12 @@ export async function insertSupabaseBook(book: BookDraft, userId: string, invent
   if (result.error) throw readableSupabaseError("Book save", result.error);
   const data = result.data;
   const bookId = data.id as string;
+  try {
+    await syncBookCategories(bookId, userId, selectedCategoryIds);
+  } catch (categoryError) {
+    await supabase.from("books").delete().eq("id", bookId).eq("user_id", userId);
+    throw readableSupabaseError("Book category save", categoryError as { message?: string });
+  }
   let photoUrls: string[];
   try {
     photoUrls = await replaceSupabaseBookPhotos(bookId, userId, book.photo_urls ?? [], photoFiles);
@@ -261,6 +341,8 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;
 
+  const selectedCategoryIds = (updates.category_ids ?? (updates.category_id ? [updates.category_id] : [])).filter(Boolean);
+  const firstCategoryId = selectedCategoryIds[0] || updates.category_id || null;
   const nextPhotoUrls = await replaceSupabaseBookPhotos(id, userId, updates.photo_urls ?? [], photoFiles);
   const nextCoverUrl = updates.cover_url || nextPhotoUrls[0] || "";
 
@@ -271,7 +353,7 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
       published_year: updates.published_year,
       isbn: updates.isbn,
       cover_url: nextCoverUrl,
-      category_id: updates.category_id || null,
+      category_id: firstCategoryId,
       category: updates.category,
       book_type: updates.book_type,
       condition: updates.condition,
@@ -292,6 +374,7 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
   }
 
   if (result.error) throw readableSupabaseError("Book update", result.error);
+  await syncBookCategories(id, userId, selectedCategoryIds);
   return fetchSupabaseBook((result.data as Book).id, userId);
 }
 
@@ -304,7 +387,9 @@ export async function fetchPublicSupabaseBooks(shareId: string) {
   });
 
   if (error) throw error;
-  return (data as PublicSupabaseBookRow[]).map(withPublicPhotoUrls);
+  const books = data as PublicSupabaseBookRow[];
+  const assignments = await fetchBookCategoryAssignments(books.map((book) => book.id));
+  return books.map((book) => withPublicPhotoUrls(book, assignments));
 }
 
 export async function fetchPublicShareId(userId: string) {
