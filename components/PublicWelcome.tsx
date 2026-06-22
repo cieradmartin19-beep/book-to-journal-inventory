@@ -33,17 +33,17 @@ function DetailList({ items }: { items: string[] }) {
 }
 
 export function PublicWelcome({ shareId }: { shareId?: string }) {
-  const [libraryHref, setLibraryHref] = useState(shareId ? `/share/${encodeURIComponent(shareId)}` : "");
+  const [libraryHref, setLibraryHref] = useState(shareId ? `/share/${encodeURIComponent(shareId)}/library` : "");
 
   useEffect(() => {
     if (shareId) {
-      setLibraryHref(`/share/${encodeURIComponent(shareId)}`);
+      setLibraryHref(`/share/${encodeURIComponent(shareId)}/library`);
       return;
     }
     let active = true;
     void resolveCustomOrderShareId()
       .then((shareId) => {
-        if (active && shareId) setLibraryHref(`/share/${encodeURIComponent(shareId)}`);
+        if (active && shareId) setLibraryHref(`/share/${encodeURIComponent(shareId)}/library`);
       })
       .catch(() => {
         if (active) setLibraryHref("");
