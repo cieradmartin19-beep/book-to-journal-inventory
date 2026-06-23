@@ -133,3 +133,10 @@ export function updateLocalBook(id: string, updates: Partial<Book>) {
   saveLocalBooks(updated);
   return updated.find((book) => book.id === id) ?? null;
 }
+
+export function deleteLocalBook(id: string) {
+  const books = loadLocalBooks();
+  const nextBooks = books.filter((book) => book.id !== id);
+  saveLocalBooks(nextBooks);
+  return nextBooks.length !== books.length;
+}

@@ -2,10 +2,12 @@
 
 import {
   createLocalBook,
+  deleteLocalBook,
   loadLocalBooks,
   updateLocalBook
 } from "@/lib/books-store";
 import {
+  deleteSupabaseBook,
   fetchPublicShareId,
   fetchPublicSupabaseBooks,
   fetchSupabaseBook,
@@ -131,6 +133,14 @@ export async function updateBook(id: string, updates: Partial<BookDraft>, photoF
   const user = await ensureSupabaseUser();
   if (!user) throw new Error("Supabase is configured, but no authenticated user is available.");
   return updateSupabaseBook(id, updates, user.id, photoFiles);
+}
+
+export async function deleteBook(id: string): Promise<boolean> {
+  if (!isSupabaseConfigured) return deleteLocalBook(id);
+
+  const user = await ensureSupabaseUser();
+  if (!user) throw new Error("Supabase is configured, but no authenticated user is available.");
+  return deleteSupabaseBook(id, user.id);
 }
 
 export async function fetchPublicBooks(shareId: string): Promise<Book[]> {

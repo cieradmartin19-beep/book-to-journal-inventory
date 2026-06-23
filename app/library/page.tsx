@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookCard } from "@/components/BookCard";
 import { fetchCategories } from "@/lib/categories";
-import { fetchBooks } from "@/lib/inventory-repository";
+import { deleteBook, fetchBooks } from "@/lib/inventory-repository";
 import { fetchStatuses } from "@/lib/statuses";
 import type { Book, Category, CustomStatus } from "@/lib/types";
 
@@ -20,6 +20,8 @@ export default function LibraryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [savedMessage, setSavedMessage] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingId, setDeletingId] = useState("");
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("saved") === "true") {
@@ -66,6 +68,23 @@ export default function LibraryPage() {
       && (statusId === "all" || statusKey === statusId || book.status === selectedStatusName);
   }), [books, categoryId, categoryOptions, query, statusId, statusOptions]);
 
+  async function handleDeleteBook(book: Book) {
+    const confirmed = window.confirm(`Delete "${book.title}" from the library? This cannot be undone.`);
+    if (!confirmed) return;
+
+    setDeletingId(book.id);
+    setDeleteError("");
+    try {
+      await deleteBook(book.id);
+      setBooks((current) => current.filter((item) => item.id !== book.id));
+      setSavedMessage("Listing deleted.");
+    } catch (deleteFailure) {
+      setDeleteError(deleteFailure instanceof Error ? deleteFailure.message : "Listing could not be deleted.");
+    } finally {
+      setDeletingId("");
+    }
+  }
+
   return (
     <AppShell>
       <section className="flex flex-col gap-4 py-4 sm:flex-row sm:items-end sm:justify-between">
@@ -78,6 +97,7 @@ export default function LibraryPage() {
       </section>
 
       {savedMessage ? <p className="mb-4 rounded-lg bg-mint/30 p-3 font-black">{savedMessage}</p> : null}
+      {deleteError ? <p className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{deleteError}</p> : null}
       <div className="panel grid gap-3 p-3 md:grid-cols-[minmax(0,1fr)_200px_200px]">
         <label className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink/45" size={20} aria-hidden />
@@ -95,7 +115,7 @@ export default function LibraryPage() {
 
       {loading ? <div className="panel mt-5 p-5 font-bold text-ink/65">Loading books...</div> : null}
       {!loading && error ? <div className="mt-5 rounded-lg border-2 border-red-200 bg-red-50 p-5"><h2 className="text-xl font-black text-red-900">Books could not be loaded</h2><p className="mt-2 font-semibold text-red-800">Please refresh and try again.</p>{process.env.NODE_ENV === "development" ? <p className="mt-2 break-words text-sm text-red-800">{error}</p> : null}</div> : null}
-      {!loading && !error && filteredBooks.length > 0 ? <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">{filteredBooks.map((book) => <BookCard key={book.id} book={book} />)}</div> : null}
+      {!loading && !error && filteredBooks.length > 0 ? <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">{filteredBooks.map((book) => <BookCard key={book.id} book={book} onDelete={handleDeleteBook} deleting={deletingId === book.id} />)}</div> : null}
       {!loading && !error && filteredBooks.length === 0 ? <div className="panel mt-5 grid min-h-64 place-items-center p-8 text-center"><div><h2 className="font-serif text-2xl font-black">{books.length ? "No books match these filters" : "The Paper Curio is ready"}</h2><p className="mt-2 font-semibold text-ink/65">{books.length ? "Try another search, category, or status." : "Add your first book to begin cataloging."}</p>{!books.length ? <Link href="/add" className="btn-primary mt-5"><Plus size={20} aria-hidden />Add Book</Link> : null}</div></div> : null}
     </AppShell>
   );

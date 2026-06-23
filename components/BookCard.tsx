@@ -2,38 +2,39 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Trash2 } from "lucide-react";
 import { displayCategories } from "@/lib/categories";
 import { displayStatus } from "@/lib/statuses";
 import type { Book } from "@/lib/types";
 import { formatMoney } from "@/lib/stats";
 
-export function BookCard({ book }: { book: Book }) {
+export function BookCard({ book, onDelete, deleting = false }: { book: Book; onDelete?: (book: Book) => void; deleting?: boolean }) {
   const categories = displayCategories(book);
   const status = displayStatus(book);
 
   return (
-    <Link
-      href={`/books/${book.id}`}
-      className="catalog-card block min-w-0"
-    >
-      <div className="relative aspect-[4/5] bg-honey/25">
-        <Image
-          src={book.cover_url || "/placeholder-cover.svg"}
-          alt={`${book.title} cover`}
-          fill
-          sizes="(max-width: 768px) 50vw, 220px"
-          className="object-cover"
-        />
-        <span className="absolute left-2 top-2 rounded-md bg-paper px-2 py-1 text-xs font-black shadow-sm">
-          {book.inventory_id}
-        </span>
-      </div>
-      <div className="space-y-2 p-2.5 sm:p-3">
-        <div>
-          <h3 className="line-clamp-2 min-h-10 text-sm font-black leading-5">{book.title}</h3>
-          <p className="truncate text-xs font-semibold text-ink/60">{book.author || "Unknown author"}</p>
+    <article className="catalog-card block min-w-0">
+      <Link href={`/books/${book.id}`} className="block min-w-0">
+        <div className="relative aspect-[4/5] bg-honey/25">
+          <Image
+            src={book.cover_url || "/placeholder-cover.svg"}
+            alt={`${book.title} cover`}
+            fill
+            sizes="(max-width: 768px) 50vw, 220px"
+            className="object-cover"
+          />
+          <span className="absolute left-2 top-2 rounded-md bg-paper px-2 py-1 text-xs font-black shadow-sm">
+            {book.inventory_id}
+          </span>
         </div>
+      </Link>
+      <div className="space-y-2 p-2.5 sm:p-3">
+        <Link href={`/books/${book.id}`} className="block min-w-0">
+          <div>
+            <h3 className="line-clamp-2 min-h-10 text-sm font-black leading-5">{book.title}</h3>
+            <p className="truncate text-xs font-semibold text-ink/60">{book.author || "Unknown author"}</p>
+          </div>
+        </Link>
         <div className="flex flex-wrap gap-1">
           {categories.map((category) => (
             <span className="archive-label" key={`${book.id}-${category.name}`} style={{ backgroundColor: category.color }}>
@@ -48,7 +49,18 @@ export function BookCard({ book }: { book: Book }) {
           <span className="min-w-0 truncate">{book.status === "Sold" ? formatMoney(book.profit) : book.condition}</span>
           {book.show_public ? <Eye size={16} aria-label="Public" /> : <EyeOff size={16} aria-label="Private" />}
         </div>
+        {onDelete ? (
+          <button
+            type="button"
+            className="btn-secondary w-full justify-center px-3 py-2 text-xs"
+            disabled={deleting}
+            onClick={() => onDelete(book)}
+          >
+            <Trash2 size={15} aria-hidden />
+            {deleting ? "Deleting..." : "Delete"}
+          </button>
+        ) : null}
       </div>
-    </Link>
+    </article>
   );
 }

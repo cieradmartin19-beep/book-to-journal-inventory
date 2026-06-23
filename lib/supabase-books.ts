@@ -386,6 +386,40 @@ export async function updateSupabaseBook(id: string, updates: Partial<BookDraft>
   return fetchSupabaseBook((result.data as Book).id, userId);
 }
 
+export async function deleteSupabaseBook(id: string, userId: string) {
+  const supabase = getSupabaseBrowserClient();
+  if (!supabase) return false;
+
+  const { data: photos } = await supabase
+    .from("book_photos")
+    .select("storage_path")
+    .eq("book_id", id)
+    .eq("user_id", userId);
+
+  const storagePaths = (photos ?? [])
+    .map((photo: { storage_path?: string | null }) => photo.storage_path)
+    .filter(Boolean) as string[];
+
+  if (storagePaths.length > 0) {
+    await supabase.storage.from(PHOTO_BUCKET).remove(storagePaths);
+  }
+
+  await supabase
+    .from("book_categories")
+    .delete()
+    .eq("book_id", id)
+    .eq("user_id", userId);
+
+  const { error } = await supabase
+    .from("books")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw readableSupabaseError("Book delete", error);
+  return true;
+}
+
 export async function fetchPublicSupabaseBooks(shareId: string) {
   const supabase = getSupabaseBrowserClient();
   if (!supabase) return null;

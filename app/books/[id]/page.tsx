@@ -2,24 +2,27 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { BookFormFields } from "@/components/BookFormFields";
 import { createCategory, displayCategories, fetchCategories } from "@/lib/categories";
 import { createStatus, displayStatus, fetchStatuses } from "@/lib/statuses";
-import { fetchBook, updateBook } from "@/lib/inventory-repository";
+import { deleteBook, fetchBook, updateBook } from "@/lib/inventory-repository";
 import { calculateProfit } from "@/lib/mock-data";
 import { formatMoney } from "@/lib/stats";
 import type { Book, BookDraft, Category, CustomStatus } from "@/lib/types";
 
 export default function BookDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
   const [book, setBook] = useState<Book | null>(null);
   const [draft, setDraft] = useState<BookDraft | null>(null);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [customStatuses, setCustomStatuses] = useState<CustomStatus[]>([]);
   const [pendingPhotoFiles, setPendingPhotoFiles] = useState<File[]>([]);
@@ -213,6 +216,26 @@ export default function BookDetailPage({ params }: { params: { id: string } }) {
           >
             <Save size={22} aria-hidden />
             {saving ? "Saving..." : saved ? "Saved" : "Save Changes"}
+          </button>
+          <button
+            className="btn-secondary mt-3 w-full justify-center text-lg"
+            disabled={saving || deleting}
+            onClick={async () => {
+              const confirmed = window.confirm(`Delete "${book.title}" from the library? This cannot be undone.`);
+              if (!confirmed) return;
+              setDeleting(true);
+              setSaveError("");
+              try {
+                await deleteBook(book.id);
+                router.push("/library");
+              } catch (error) {
+                setSaveError(error instanceof Error ? error.message : "Listing could not be deleted.");
+                setDeleting(false);
+              }
+            }}
+          >
+            <Trash2 size={22} aria-hidden />
+            {deleting ? "Deleting..." : "Delete Listing"}
           </button>
           {saveError ? <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm font-bold text-red-800">{saveError}</p> : null}
         </div>
