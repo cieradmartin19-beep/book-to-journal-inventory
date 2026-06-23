@@ -176,19 +176,42 @@ export function displayCategory(book: Pick<Category, "name" | "color"> | { categ
   };
 }
 
-export function displayCategories(book: { category_names?: string[]; category_colors?: string[]; category?: string; category_color?: string | null }) {
+export function displayCategories(book: {
+  categories?: { id?: string; name?: string; color?: string | null }[] | null;
+  category_names?: string[] | null;
+  category_colors?: string[] | null;
+  category_ids?: string[] | null;
+  category?: string | null;
+  category_id?: string | null;
+  category_color?: string | null;
+}) {
+  if (Array.isArray(book.categories) && book.categories.length > 0) {
+    return book.categories
+      .filter((category) => category?.name)
+      .map((category) => ({
+        name: category.name ?? "Uncategorized",
+        color: category.color ?? "#E9E1D2",
+      }));
+  }
+
   const names = (book.category_names ?? []).filter(Boolean);
   const colors = (book.category_colors ?? []).filter(Boolean);
+
   if (names.length > 0) {
     return names.map((name, index) => ({
       name,
-      color: colors[index] || "#E9E1D2"
+      color: colors[index] || "#E9E1D2",
     }));
   }
 
   if (book.category && book.category !== "Uncategorized") {
-    return [{ name: book.category, color: book.category_color || "#E9E1D2" }];
+    return [
+      {
+        name: book.category,
+        color: book.category_color || "#E9E1D2",
+      },
+    ];
   }
 
-  return [{ name: "Uncategorized", color: "#E9E1D2" }];
+  return [];
 }
